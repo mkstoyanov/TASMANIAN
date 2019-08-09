@@ -31,6 +31,9 @@
 #ifndef __TASMANIAN_LINEAR_SOLVERS_CPP
 #define __TASMANIAN_LINEAR_SOLVERS_CPP
 
+//#include <xmmintrin.h>
+#include <immintrin.h>
+
 #include "tsgLinearSolvers.hpp"
 
 namespace TasGrid{
@@ -195,6 +198,28 @@ void TasmanianFourierTransform::fast_fourier_transform(std::vector<std::vector<s
         }
     }
 }
+
+#ifdef __SSE3__
+struct dcomplex{ // two doubles stored in the sse 128-bit registers
+    typedef double mem_type __attribute__((__vector_size__(16)));
+    mem_type data;
+    dcomplex() : data(_mm_setzero_pd()) {}
+    dcomplex(mem_type const &a) : data(a){}
+    dcomplex(double r, double i) : data(_mm_setr_pd(r, i)){}
+
+    void load(std::complex<double> const *a){ data = _mm_loadu_pd(reinterpret_cast<double const*>(a)); }
+
+    dcomplex operator + (dcomplex const &other) const{ return data + other.data; }
+    dcomplex operator - (dcomplex const &other) const{ return data - other.data; }
+
+    dcomplex operator * (dcomplex const &other) const{
+        __m128d direct_mult = _mm_mul_pd(data, other.data);
+        __m128d shuffle_b = _mm_shuffle_pd(other.data, other.data, 1); // shuffle_b = flip two entries in b
+        __m128d cross_mult = _mm_mul_pd(data, shuffle_b);
+        return _mm_addsub_pd( _mm_shuffle_pd(direct_mult, cross_mult, 0), _mm_shuffle_pd(direct_mult, cross_mult, 3) );
+    }
+};
+#endif
 
 void TasmanianFourierTransform::fast_fourier_transform1D(std::vector<std::vector<std::complex<double>>> &data, std::vector<int> &indexes){
     //
