@@ -199,27 +199,154 @@ void TasmanianFourierTransform::fast_fourier_transform(std::vector<std::vector<s
     }
 }
 
-#ifdef __SSE3__
 struct dcomplex{ // two doubles stored in the sse 128-bit registers
+    #ifdef __AVX__
+    typedef double mem_type __attribute__((__vector_size__(32)));
+    inline __m256d mm_complex_mul(__m256d const &a, __m256d const &b) const{
+        //std::cout << "using AVX" << std::endl;
+        return _mm256_addsub_pd( _mm256_permute_pd(a, 0) * b, _mm256_permute_pd(a, 15) * _mm256_permute_pd(b, 5) );
+    }
+    inline __m256d mm_setzero() const{ return _mm256_setzero_pd(); }
+    inline __m256d mm_set(double r, double i) const{ return _mm256_setr_pd(r, i, r, i); }
+    inline __m256d mm_load(std::complex<double> const *a) const{ return _mm256_loadu_pd(reinterpret_cast<double const*>(a)); }
+    inline void mm_store(std::complex<double> *a, __m256d const &d) const{ _mm256_storeu_pd(reinterpret_cast<double*>(a), d); }
+    static constexpr int stride = 2;
+    #elif defined(__SSE3__)
     typedef double mem_type __attribute__((__vector_size__(16)));
+    inline __m128d mm_complex_mul(__m128d const &a, __m128d const &b) const{
+        //std::cout << "using SSE3" << std::endl;
+        __m128d direct_mult = _mm_mul_pd(a, b);
+        __m128d shuffle_b = _mm_shuffle_pd(b, b, 1); // shuffle_b = flip two entries in b
+        __m128d cross_mult = _mm_mul_pd(a, shuffle_b);
+        return _mm_addsub_pd( _mm_shuffle_pd(direct_mult, cross_mult, 0), _mm_shuffle_pd(direct_mult, cross_mult, 3) );
+    }
+    inline __m128d mm_setzero() const{ return _mm_setzero_pd(); }
+    inline __m128d mm_set(double r, double i) const{ return _mm_setr_pd(r, i); }
+    inline __m128d mm_load(std::complex<double> const *a) const{ return _mm_loadu_pd(reinterpret_cast<double const*>(a)); }
+    inline void mm_store(std::complex<double> *a, __m128d const &d) const{ _mm_storeu_pd(reinterpret_cast<double*>(a), d); }
+    static constexpr int stride = 1;
+    #else
+    typedef std::complex<double> mem_type;
+    inline std::complex<double> mm_complex_mul(std::complex<double> const &a, std::complex<double> const &b) const{
+        //std::cout << "using no-vectorization" << std::endl;
+        return a * b;
+    }
+    inline std::complex<double> mm_setzero() const{ return std::complex<double>(0.0, 0.0); }
+    inline std::complex<double> mm_set(double r, double i) const{ return std::complex<double>(r, i); }
+    inline std::complex<double> mm_load(std::complex<double> const *a) const{ return *a; }
+    inline void mm_store(std::complex<double> *a, std::complex<double> const &b) const{ *a = b; }
+    static constexpr int stride = 1;
+    #endif
     mem_type data;
-    dcomplex() : data(_mm_setzero_pd()) {}
-    dcomplex(mem_type const &a) : data(a){}
-    dcomplex(double r, double i) : data(_mm_setr_pd(r, i)){}
 
-    void load(std::complex<double> const *a){ data = _mm_loadu_pd(reinterpret_cast<double const*>(a)); }
+    dcomplex() : data(mm_setzero()) {}
+    dcomplex(mem_type const &a) : data(a){}
+    dcomplex(double r, double i) : data(mm_set(r, i)){}
+
+    dcomplex(dcomplex const &) = default;
+    dcomplex(dcomplex &&) = default;
+    dcomplex& operator = (dcomplex const &) = default;
+    dcomplex& operator = (dcomplex &&) = default;
+
+    void load(std::complex<double> const *a){ data = mm_load(a); }
+    void load(std::complex<double> const *a, int num){
+        std::vector<std::complex<double>> full(stride, {0.0, 0.0});
+        std::copy_n(a, num, full.begin());
+        data = mm_load(full.data());
+    }
+    void store(std::complex<double> *a) const{ mm_store(a, data); }
+    void store(std::complex<double> *a, int num) const{
+        std::vector<std::complex<double>> full(stride);
+        mm_store(full.data(), data);
+        std::copy_n(full.begin(), num, a);
+    }
 
     dcomplex operator + (dcomplex const &other) const{ return data + other.data; }
     dcomplex operator - (dcomplex const &other) const{ return data - other.data; }
 
     dcomplex operator * (dcomplex const &other) const{
-        __m128d direct_mult = _mm_mul_pd(data, other.data);
-        __m128d shuffle_b = _mm_shuffle_pd(other.data, other.data, 1); // shuffle_b = flip two entries in b
-        __m128d cross_mult = _mm_mul_pd(data, shuffle_b);
-        return _mm_addsub_pd( _mm_shuffle_pd(direct_mult, cross_mult, 0), _mm_shuffle_pd(direct_mult, cross_mult, 3) );
+        return mm_complex_mul(data, other.data);
+    }
+
+    dcomplex operator *= (dcomplex const &other){
+        data = mm_complex_mul(data, other.data);
+        return *this;
     }
 };
-#endif
+
+template <class T>
+class aligned_allocator{
+public:
+    //! \brief Type of the allocated entries.
+    using value_type = T;
+    //! \brief Type of the pointers.
+    using pointer = T*;
+    //! \brief Type of the const pointers.
+    using const_pointer = T const*;
+    //! \brief Type of the index size.
+    using size_type = std::size_t;
+
+    //! \brief Do not propagate on copy, simply create a new allocator.
+    using propagate_on_container_copy_assignment = std::false_type;
+    //! \brief Move the allocator on container move, preserves the state.
+    using propagate_on_container_move_assignment = std::true_type;
+    //! \brief Move the allocator on container swap, preserves the state.
+    using propagate_on_container_swap            = std::true_type;
+
+    //! \brief The beginning of an aligned block with within a \b stride of any array, matches \b hala::vex:mem_slice::stride.
+    static constexpr size_t extra_elements = (size_t) dcomplex::stride;
+    //! \brief Number of bytes to use for the alignment.
+    static constexpr size_t alignment_byte = extra_elements * sizeof(T);
+
+    //! \brief Default constructor, do not use the offsets.
+    aligned_allocator() : offset1(alignment_byte + 1), offset2(alignment_byte + 1){}
+
+    //! \brief Returns an aligned pointer to allocated block.
+    pointer allocate(size_type n, const_pointer hint = 0){
+        void *p = std::allocator<T>().allocate(n + extra_elements, hint);
+        if (p == nullptr) throw std::bad_alloc();
+
+        size_t pval = reinterpret_cast<size_t>(p);
+        offset2 = (alignment_byte - pval % alignment_byte) % alignment_byte;
+        if (offset1 > alignment_byte) offset1 = offset2;
+
+        p = reinterpret_cast<void*>(pval + offset2);
+
+        return static_cast<pointer>(p);
+    }
+
+    //! \brief Deletes the entire block associated with \b p.
+    void deallocate(pointer p, size_type n){
+        pointer padjusted = reinterpret_cast<pointer>( reinterpret_cast<size_t>(p) - offset1 );
+        std::allocator<T>().deallocate(padjusted, n);
+        offset1 = offset2;
+    }
+
+    //! \brief Shrink the number of template parameters.
+    template<class U> struct rebind{
+        //! \brief Defines the reduced parameter template parameter alias, per standard requirements.
+        using other = aligned_allocator<U>;
+    };
+
+    //! \brief Do not propagate on copy, this constructor cannot deallocate memory from another allocator.
+    aligned_allocator<T> select_on_container_copy_construction() const{
+        return aligned_allocator<T>();
+    }
+
+    //! \brief Allocators for regtype none have no effective state, all other allocators are different.
+    bool operator == (aligned_allocator<T> const &) noexcept{
+        return (extra_elements == 1); // the none allocator has no real state
+    }
+
+    //! \brief Allocators for regtype none have no effective state, all other allocators are different.
+    bool operator != (aligned_allocator<T> const &) noexcept{
+        return (extra_elements != 1); // the none allocator has no real state
+    }
+
+private:
+    size_t offset1, offset2;
+};
+
 
 void TasmanianFourierTransform::fast_fourier_transform1D(std::vector<std::vector<std::complex<double>>> &data, std::vector<int> &indexes){
     //
@@ -233,19 +360,33 @@ void TasmanianFourierTransform::fast_fourier_transform1D(std::vector<std::vector
     // The terms \exp(-2 \pi k / N) \exp(-2 \pi j / 3), and \exp(-4 \pi k / N) \exp(-4 \pi j / 3) are the twiddle factors
     // The procedure is recursive splitting the transform into small sets, all the way to size 3
     //
+    constexpr int vlenght = dcomplex::stride;
     int num_outputs = (int) data[0].size(); // get the problem dimensions, num outputs and num entries for the 1D transform
+    int num_outputs_short     = vlenght * (num_outputs / vlenght);
+    int num_outputs_remainder = num_outputs - num_outputs_short;
+    if (num_outputs_remainder > 0) num_outputs += vlenght - num_outputs_remainder;
+    num_outputs /= vlenght;
+
     int num_entries = (int) indexes.size(); // the size of the 1D problem, i.e., N
     if (num_entries == 1) return; // nothing to do for size 1
     // a copy of the data is needed to swap back and forth, thus we make two copies and swap between them
-    std::vector<std::vector<std::complex<double>>> V(num_entries);
+    std::vector<std::vector<dcomplex, aligned_allocator<dcomplex>>> V(num_entries);
     auto v = V.begin();
-    for(auto i: indexes) *v++ = data[i]; // copy from the data only the indexes needed for the 1D transform
-    std::vector<std::vector<std::complex<double>>> W(num_entries);
+    for(auto i: indexes){
+        (*v).resize(num_outputs);
+        // copy from the data only the indexes needed for the 1D transform
+        for(int k=0; k<num_outputs_short; k+=vlenght)
+            (*v)[k / vlenght].load(&data[i][k]);
+        if (num_outputs_remainder > 0)
+            (*v)[num_outputs - 1].load(&data[i][num_outputs_short], num_outputs_remainder);
+        *v++;
+    }
+    std::vector<std::vector<dcomplex, aligned_allocator<dcomplex>>> W(num_entries);
     for(auto &w : W) w.resize(num_outputs); // allocate storage for the second data set
 
     // the radix-3 FFT algorithm uses two common twiddle factors from known angles +/- 2 pi/3
-    std::complex<double> twidlep(-0.5, -std::sqrt(3.0) / 2.0); // angle of -2 pi/3
-    std::complex<double> twidlem(-0.5,  std::sqrt(3.0) / 2.0); // angle of  2 pi/3 = -4 pi/3
+    dcomplex twidlep(-0.5, -std::sqrt(3.0) / 2.0); // angle of -2 pi/3
+    dcomplex twidlem(-0.5,  std::sqrt(3.0) / 2.0); // angle of  2 pi/3 = -4 pi/3
 
     int stride = num_entries / 3; // the jump between entries, e.g., in one level of split stride is 3, split again and stride is 9 ... up to N / 3
     int length = 3;               // the number of entries in the sub-sequences, i.e., how large k can be (see above), smallest sub-sequence uses length 3
@@ -275,19 +416,19 @@ void TasmanianFourierTransform::fast_fourier_transform1D(std::vector<std::vector
         int bigstride = stride / 3;
 
         double theta = -2.0 * Maths::pi / ((double) biglength);
-        std::complex<double> expstep(std::cos(theta), std::sin(theta)); // initialize the twiddle factors common for this level of sub-sequences
-        std::complex<double> expstep2 = expstep * expstep;
+        dcomplex expstep(std::cos(theta), std::sin(theta)); // initialize the twiddle factors common for this level of sub-sequences
+        dcomplex expstep2 = expstep * expstep;
 
         // merge sets of 3 sub-sequences (coefficients of x_{i,m}) into 3 pieces of one sequence F_{k + j N / 3}
         for(int i=0; i<bigstride; i++){ // total number of triples of sequences is bigstride
-            std::complex<double> t01(1.0, 0.0);
-            std::complex<double> t02(1.0, 0.0);
+            dcomplex t01(1.0, 0.0);
+            dcomplex t02(1.0, 0.0);
 
-            std::complex<double> t11 = twidlep;
-            std::complex<double> t12 = twidlem;
+            dcomplex t11 = twidlep;
+            dcomplex t12 = twidlem;
 
-            std::complex<double> t21 = twidlem;
-            std::complex<double> t22 = twidlep; // the twiddle factors form a 3 by 3 matrix [1, 1, 1; 1, t11, t12; 1, t21, t22;]
+            dcomplex t21 = twidlem;
+            dcomplex t22 = twidlep; // the twiddle factors form a 3 by 3 matrix [1, 1, 1; 1, t11, t12; 1, t21, t22;]
 
             for(int k=0; k<length; k++){ // number of entries in the sub-sequences
                 auto x1 = V[i + k * stride].begin();
@@ -323,8 +464,119 @@ void TasmanianFourierTransform::fast_fourier_transform1D(std::vector<std::vector
 
     // copy back the solution into the data structure
     v = V.begin();
-    for(auto i : indexes) data[i] = *v++;
+    for(auto i : indexes){
+        for(int k=0; k<num_outputs_short; k+=vlenght)
+            (*v)[k / vlenght].store(&data[i][k]);
+        if (num_outputs_remainder > 0)
+            (*v)[num_outputs - 1].store(&data[i][num_outputs_short], num_outputs_remainder);
+        *v++;
+    }
 }
+
+// void TasmanianFourierTransform::fast_fourier_transform1D(std::vector<std::vector<std::complex<double>>> &data, std::vector<int> &indexes){
+//     //
+//     // Given vector x_n with size N, the Fourier transform F_k is defined as: F_k = \sum_{n=0}^{N-1} \exp(- 2 \pi k n / N) x_n
+//     // Assuming that N = 3^l for some l, we can sub-divide the transform into strips of 3
+//     // let j = 0, 1, 2; let k = 0, .., N/3; let x_{0,m} = x_{3m}; let x_{1,m} = x_{3m+1}; and let x_{2,m} = x_{3m+2}
+//     // F_{k + j N / 3} =                                         \sum_{m=0}^{N/3 - 1} x_{0,m} \exp(-2 \pi k m / (N / 3))
+//     //                   + \exp(-2 \pi k / N) \exp(-2 \pi j / 3) \sum_{m=0}^{N/3 - 1} x_{1,m} \exp(-2 \pi k m / (N / 3))
+//     //                   + \exp(-4 \pi k / N) \exp(-4 \pi j / 3) \sum_{m=0}^{N/3 - 1} x_{2,m} \exp(-2 \pi k m / (N / 3))
+//     // The three sums are the Fourier coefficients of x_{0, m}, x_{1, m}, and x_{2, m}
+//     // The terms \exp(-2 \pi k / N) \exp(-2 \pi j / 3), and \exp(-4 \pi k / N) \exp(-4 \pi j / 3) are the twiddle factors
+//     // The procedure is recursive splitting the transform into small sets, all the way to size 3
+//     //
+//     int num_outputs = (int) data[0].size(); // get the problem dimensions, num outputs and num entries for the 1D transform
+//     int num_entries = (int) indexes.size(); // the size of the 1D problem, i.e., N
+//     if (num_entries == 1) return; // nothing to do for size 1
+//     // a copy of the data is needed to swap back and forth, thus we make two copies and swap between them
+//     std::vector<std::vector<std::complex<double>>> V(num_entries);
+//     auto v = V.begin();
+//     for(auto i: indexes) *v++ = data[i]; // copy from the data only the indexes needed for the 1D transform
+//     std::vector<std::vector<std::complex<double>>> W(num_entries);
+//     for(auto &w : W) w.resize(num_outputs); // allocate storage for the second data set
+//
+//     // the radix-3 FFT algorithm uses two common twiddle factors from known angles +/- 2 pi/3
+//     std::complex<double> twidlep(-0.5, -std::sqrt(3.0) / 2.0); // angle of -2 pi/3
+//     std::complex<double> twidlem(-0.5,  std::sqrt(3.0) / 2.0); // angle of  2 pi/3 = -4 pi/3
+//
+//     int stride = num_entries / 3; // the jump between entries, e.g., in one level of split stride is 3, split again and stride is 9 ... up to N / 3
+//     int length = 3;               // the number of entries in the sub-sequences, i.e., how large k can be (see above), smallest sub-sequence uses length 3
+//
+//     for(int i=0; i<stride; i++){ // do the 3 transform, multiply by 3 by 3 matrix
+//         auto x1 = V[i].begin();
+//         auto x2 = V[i + stride].begin();
+//         auto x3 = V[i + 2 * stride].begin(); // x1, x2, x3 are the three entries of a sub-sequence
+//
+//         auto y1 = W[i].begin();
+//         auto y2 = W[i + stride].begin();
+//         auto y3 = W[i + 2 * stride].begin(); // y1, y2, y3 are the resulting Fourier coefficients
+//
+//         for(int k=0; k<num_outputs; k++){
+//             *y1++ = *x1 + *x2 + *x3;
+//             *y2++ = *x1 + twidlep * *x2 + twidlem * *x3;
+//             *y3++ = *x1 + twidlem * *x2 + twidlep * *x3;
+//             x1++; x2++; x3++;
+//         }
+//     }
+//
+//     std::swap(V, W); // swap, now V contains the computed transform of the sub-sequences with size 3, W will be used for scratch space
+//
+//     // merge smaller sequences, do the recursion
+//     while(stride / 3 > 0){ // when the stride that we just computed is equal to 1, then stop the recursion
+//         int biglength = 3 * length; // big sequence, i.e., F_k has this total length
+//         int bigstride = stride / 3;
+//
+//         double theta = -2.0 * Maths::pi / ((double) biglength);
+//         std::complex<double> expstep(std::cos(theta), std::sin(theta)); // initialize the twiddle factors common for this level of sub-sequences
+//         std::complex<double> expstep2 = expstep * expstep;
+//
+//         // merge sets of 3 sub-sequences (coefficients of x_{i,m}) into 3 pieces of one sequence F_{k + j N / 3}
+//         for(int i=0; i<bigstride; i++){ // total number of triples of sequences is bigstride
+//             std::complex<double> t01(1.0, 0.0);
+//             std::complex<double> t02(1.0, 0.0);
+//
+//             std::complex<double> t11 = twidlep;
+//             std::complex<double> t12 = twidlem;
+//
+//             std::complex<double> t21 = twidlem;
+//             std::complex<double> t22 = twidlep; // the twiddle factors form a 3 by 3 matrix [1, 1, 1; 1, t11, t12; 1, t21, t22;]
+//
+//             for(int k=0; k<length; k++){ // number of entries in the sub-sequences
+//                 auto x1 = V[i + k * stride].begin();
+//                 auto x2 = V[i + k * stride + bigstride].begin();
+//                 auto x3 = V[i + k * stride + 2 * bigstride].begin(); // x1, x2, x3 are the next entries of the sub-sequence (i.e., the sums)
+//
+//                 auto y1 = W[i + k * bigstride].begin();
+//                 auto y2 = W[i + (k + length) * bigstride].begin();
+//                 auto y3 = W[i + (k + 2 * length) * bigstride].begin(); // y1, y2, y3 are the F_{k + j N / 3}
+//
+//                 for(int o=0; o<num_outputs; o++){ // traverse through all the outputs
+//                     *y1++ = *x1 + t01 * *x2 + t02 * *x3;
+//                     *y2++ = *x1 + t11 * *x2 + t12 * *x3;
+//                     *y3++ = *x1 + t21 * *x2 + t22 * *x3;
+//                     x1++; x2++; x3++;
+//                 }
+//
+//                 // update the twiddle factors for the next index k
+//                 t01 *= expstep;
+//                 t11 *= expstep;
+//                 t21 *= expstep;
+//                 t02 *= expstep2;
+//                 t12 *= expstep2;
+//                 t22 *= expstep2;
+//             }
+//         }
+//
+//         std::swap(V, W); // swap the data, V holds the current set of indexes and W is the next set
+//
+//         stride = bigstride;
+//         length = biglength;
+//     }
+//
+//     // copy back the solution into the data structure
+//     v = V.begin();
+//     for(auto i : indexes) data[i] = *v++;
+// }
 
 namespace TasSparse{
 
