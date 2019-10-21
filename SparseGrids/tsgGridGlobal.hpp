@@ -39,8 +39,8 @@ namespace TasGrid{
 #ifndef __TASMANIAN_DOXYGEN_SKIP
 class GridGlobal : public BaseCanonicalGrid{
 public:
-    GridGlobal();
-    ~GridGlobal();
+    GridGlobal(ThreadEngine *num_threads) : BaseCanonicalGrid(num_threads), alpha(0.0), beta(0.0){}
+    ~GridGlobal(){}
 
     bool isGlobal() const{ return true; }
 

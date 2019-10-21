@@ -35,7 +35,8 @@
 
 #include "tsgUtils.hpp"
 
-template<class T> std::unique_ptr<T> make_unique_ptr(){ return std::unique_ptr<T>(new T()); }
+//template<class T> std::unique_ptr<T> make_unique_ptr(){ return std::unique_ptr<T>(new T()); }
+//template <typename T> using make_unique_ptr = std::make_unique<T>;
 
 namespace TasGrid{
 
@@ -54,13 +55,13 @@ bool TasmanianSparseGrid::isOpenMPEnabled(){
 }
 
 TasmanianSparseGrid::TasmanianSparseGrid() :
-    num_threads(std::thread::hardware_concurrency()), acceleration(accel_none), gpu_id(0), usingDynamicConstruction(false){
+    threaded(std::make_unique<ThreadEngine>(std::thread::hardware_concurrency())), acceleration(accel_none), gpu_id(0), usingDynamicConstruction(false){
 #ifdef Tasmanian_ENABLE_BLAS
     acceleration = accel_cpu_blas;
 #endif // Tasmanian_ENABLE_BLAS
 }
 TasmanianSparseGrid::TasmanianSparseGrid(const TasmanianSparseGrid &source) :
-    num_threads(std::thread::hardware_concurrency()), acceleration(accel_none), gpu_id(0), usingDynamicConstruction(false)
+    threaded(std::make_unique<ThreadEngine>(std::thread::hardware_concurrency())), acceleration(accel_none), gpu_id(0), usingDynamicConstruction(false)
 {
     copyGrid(&source);
 #ifdef Tasmanian_ENABLE_BLAS
@@ -157,9 +158,8 @@ void TasmanianSparseGrid::makeGlobalGrid(int dimensions, int outputs, int depth,
     if ((!level_limits.empty()) && (level_limits.size() != (size_t) dimensions)) throw std::invalid_argument("ERROR: makeGlobalGrid() requires level_limits with either 0 or dimensions entries");
     clear();
     llimits = level_limits;
-    base = make_unique_ptr<GridGlobal>();
+    base = std::make_unique<GridGlobal>(threaded.get());
     get<GridGlobal>()->makeGrid(dimensions, outputs, depth, type, rule, anisotropic_weights, alpha, beta, custom_filename, llimits);
-    base->setNumThreads(num_threads);
 }
 
 void TasmanianSparseGrid::makeSequenceGrid(int dimensions, int outputs, int depth, TypeDepth type, TypeOneDRule rule, const int *anisotropic_weights, const int *level_limits){
@@ -180,9 +180,8 @@ void TasmanianSparseGrid::makeSequenceGrid(int dimensions, int outputs, int dept
     if ((!level_limits.empty()) && (level_limits.size() != (size_t) dimensions)) throw std::invalid_argument("ERROR: makeSequenceGrid() requires level_limits with either 0 or dimensions entries");
     clear();
     llimits = level_limits;
-    base = make_unique_ptr<GridSequence>();
+    base = std::make_unique<GridSequence>(threaded.get());
     get<GridSequence>()->makeGrid(dimensions, outputs, depth, type, rule, anisotropic_weights, llimits);
-    base->setNumThreads(num_threads);
 }
 
 void TasmanianSparseGrid::makeLocalPolynomialGrid(int dimensions, int outputs, int depth, int order, TypeOneDRule rule, const int *level_limits){
@@ -203,9 +202,8 @@ void TasmanianSparseGrid::makeLocalPolynomialGrid(int dimensions, int outputs, i
     if ((!level_limits.empty()) && (level_limits.size() != (size_t) dimensions)) throw std::invalid_argument("ERROR: makeLocalPolynomialGrid() requires level_limits with either 0 or dimensions entries");
     clear();
     llimits = level_limits;
-    base = make_unique_ptr<GridLocalPolynomial>();
+    base = std::make_unique<GridLocalPolynomial>(threaded.get());
     get<GridLocalPolynomial>()->makeGrid(dimensions, outputs, depth, order, rule, llimits);
-    base->setNumThreads(num_threads);
 }
 
 void TasmanianSparseGrid::makeWaveletGrid(int dimensions, int outputs, int depth, int order, const int *level_limits){
@@ -222,9 +220,8 @@ void TasmanianSparseGrid::makeWaveletGrid(int dimensions, int outputs, int depth
     if ((!level_limits.empty()) && (level_limits.size() != (size_t) dimensions)) throw std::invalid_argument("ERROR: makeWaveletGrid() requires level_limits with either 0 or dimensions entries");
     clear();
     llimits = level_limits;
-    base = make_unique_ptr<GridWavelet>();
+    base = std::make_unique<GridWavelet>(threaded.get());
     get<GridWavelet>()->makeGrid(dimensions, outputs, depth, order, llimits);
-    base->setNumThreads(num_threads);
 }
 
 void TasmanianSparseGrid::makeFourierGrid(int dimensions, int outputs, int depth, TypeDepth type, const int* anisotropic_weights, const int* level_limits){
@@ -240,9 +237,8 @@ void TasmanianSparseGrid::makeFourierGrid(int dimensions, int outputs, int depth
     if ((!level_limits.empty()) && (level_limits.size() != (size_t) dimensions)) throw std::invalid_argument("ERROR: makeFourierGrid() requires level_limits with either 0 or dimensions entries");
     clear();
     llimits = level_limits;
-    base = make_unique_ptr<GridFourier>();
+    base = std::make_unique<GridFourier>(threaded.get());
     get<GridFourier>()->makeGrid(dimensions, outputs, depth, type, anisotropic_weights, llimits);
-    base->setNumThreads(num_threads);
 }
 
 void TasmanianSparseGrid::copyGrid(const TasmanianSparseGrid *source, int outputs_begin, int outputs_end){
@@ -250,19 +246,19 @@ void TasmanianSparseGrid::copyGrid(const TasmanianSparseGrid *source, int output
     clear();
     if (!source->empty()){
         if (source->isGlobal()){
-            base = make_unique_ptr<GridGlobal>();
+            base = std::make_unique<GridGlobal>(threaded.get());
             get<GridGlobal>()->copyGrid((GridGlobal*) source->base.get(), outputs_begin, outputs_end);
         }else if (source->isLocalPolynomial()){
-            base = make_unique_ptr<GridLocalPolynomial>();
+            base = std::make_unique<GridLocalPolynomial>(threaded.get());
             get<GridLocalPolynomial>()->copyGrid((GridLocalPolynomial*) source->base.get(), outputs_begin, outputs_end);
         }else if (source->isSequence()){
-            base = make_unique_ptr<GridSequence>();
+            base = std::make_unique<GridSequence>(threaded.get());
             get<GridSequence>()->copyGrid((GridSequence*) source->base.get(), outputs_begin, outputs_end);
         }else if (source->isFourier()){
-            base = make_unique_ptr<GridFourier>();
+            base = std::make_unique<GridFourier>(threaded.get());
             get<GridFourier>()->copyGrid((GridFourier*) source->base.get(), outputs_begin, outputs_end);
         }else if (source->isWavelet()){
-            base = make_unique_ptr<GridWavelet>();
+            base = std::make_unique<GridWavelet>(threaded.get());
             get<GridWavelet>()->copyGrid((GridWavelet*) source->base.get(), outputs_begin, outputs_end);
         }
     }
@@ -1398,15 +1394,15 @@ void TasmanianSparseGrid::readAscii(std::istream &ifs){
     ifs >> T;
     clear();
     if (T.compare("global") == 0){
-        base = make_unique_ptr<GridGlobal>();
+        base = std::make_unique<GridGlobal>(threaded.get());
     }else if (T.compare("sequence") == 0){
-        base = make_unique_ptr<GridSequence>();
+        base = std::make_unique<GridSequence>(threaded.get());
     }else if (T.compare("localpolynomial") == 0){
-        base = make_unique_ptr<GridLocalPolynomial>();
+        base = std::make_unique<GridLocalPolynomial>(threaded.get());
     }else if (T.compare("wavelet") == 0){
-        base = make_unique_ptr<GridWavelet>();
+        base = std::make_unique<GridWavelet>(threaded.get());
     }else if (T.compare("fourier") == 0){
-        base = make_unique_ptr<GridFourier>();
+        base = std::make_unique<GridFourier>(threaded.get());
     }else if (T.compare("empty") != 0){
         throw std::runtime_error("ERROR: wrong file format, unknown grid type (or corrupt file)");
     }
@@ -1484,15 +1480,15 @@ void TasmanianSparseGrid::readBinary(std::istream &ifs){
     ifs.read(TSG.data(), sizeof(char)); // what type of grid is it?
     clear();
     if (TSG[0] == 'g'){
-        base = make_unique_ptr<GridGlobal>();
+        base = std::make_unique<GridGlobal>(threaded.get());
     }else if (TSG[0] == 's'){
-        base = make_unique_ptr<GridSequence>();
+        base = std::make_unique<GridSequence>(threaded.get());
     }else if (TSG[0] == 'p'){
-        base = make_unique_ptr<GridLocalPolynomial>();
+        base = std::make_unique<GridLocalPolynomial>(threaded.get());
     }else if (TSG[0] == 'w'){
-        base = make_unique_ptr<GridWavelet>();
+        base = std::make_unique<GridWavelet>(threaded.get());
     }else if (TSG[0] == 'f'){
-        base = make_unique_ptr<GridFourier>();
+        base = std::make_unique<GridFourier>(threaded.get());
     }else if (TSG[0] != 'e'){
         throw std::runtime_error("ERROR: wrong binary file format, unknown grid type");
     }

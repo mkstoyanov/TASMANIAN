@@ -43,10 +43,8 @@
  * \endinternal
  */
 
-#include <thread>
-#include <mutex>
-
 #include "tsgMathUtils.hpp"
+#include "tsgThreadEngine.hpp"
 
 /*!
  * \internal

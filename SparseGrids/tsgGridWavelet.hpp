@@ -38,8 +38,8 @@ namespace TasGrid{
 #ifndef __TASMANIAN_DOXYGEN_SKIP
 class GridWavelet : public BaseCanonicalGrid{
 public:
-    GridWavelet();
-    ~GridWavelet();
+    GridWavelet(ThreadEngine * num_threads) : BaseCanonicalGrid(num_threads), rule1D(1, 10), order(1){}
+    ~GridWavelet(){}
 
     bool isWavelet() const{ return true; }
 

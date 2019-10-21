@@ -53,8 +53,8 @@ namespace TasGrid{
 #ifndef __TASMANIAN_DOXYGEN_SKIP
 class GridLocalPolynomial : public BaseCanonicalGrid{
 public:
-    GridLocalPolynomial();
-    ~GridLocalPolynomial();
+    GridLocalPolynomial(ThreadEngine * num_threads) : BaseCanonicalGrid(num_threads), order(1), top_level(0), sparse_affinity(0)  {}
+    ~GridLocalPolynomial(){}
 
     bool isLocalPolynomial() const{ return true; }
 
@@ -132,7 +132,7 @@ protected:
     void reset(bool clear_rule = true);
 
     //! \brief Create a new grid with given parameters and moving the data out of the vectors and sets.
-    GridLocalPolynomial(int cnum_dimensions, int cnum_outputs, int corder, TypeOneDRule crule, std::vector<int> &&pnts, std::vector<double> &&vals, std::vector<double> &&surps);
+    GridLocalPolynomial(ThreadEngine * num_threads, int cnum_dimensions, int cnum_outputs, int corder, TypeOneDRule crule, std::vector<int> &&pnts, std::vector<double> &&vals, std::vector<double> &&surps);
 
     //! \brief Used as part of the loadNeededPoints() algorithm, updates the values and cuda cache, but does not touch the surpluses.
     void updateValues(double const *vals);

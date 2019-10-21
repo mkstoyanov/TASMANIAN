@@ -36,9 +36,6 @@
 
 namespace TasGrid{
 
-GridWavelet::GridWavelet() : rule1D(1, 10), order(1){}
-GridWavelet::~GridWavelet(){}
-
 void GridWavelet::reset(){
     clearAccelerationData();
     points = MultiIndexSet();
@@ -106,9 +103,9 @@ void GridWavelet::makeGrid(int cnum_dimensions, int cnum_outputs, int depth, int
     MultiIndexSet tensors = MultiIndexManipulations::selectTensors((size_t) num_dimensions, depth, type_level, [](int i) -> int{ return i; }, std::vector<int>(), level_limits);
 
     if (order == 1){
-        needed = MultiIndexManipulations::generateNestedPoints(num_threads, tensors, [](int l)->int{ return (1 << (l + 1)) + 1; });
+        needed = MultiIndexManipulations::generateNestedPoints(threaded, tensors, [](int l)->int{ return (1 << (l + 1)) + 1; });
     }else{
-        needed = MultiIndexManipulations::generateNestedPoints(num_threads, tensors, [](int l)->int{ return (1 << (l + 2)) + 1; });
+        needed = MultiIndexManipulations::generateNestedPoints(threaded, tensors, [](int l)->int{ return (1 << (l + 2)) + 1; });
     }
 
     if (num_outputs == 0){
@@ -552,7 +549,7 @@ Data2D<int> GridWavelet::buildUpdateMap(double tolerance, TypeRefinement criteri
 
             MultiIndexSet pointset(num_dimensions, std::move(indexes.getVector()));
 
-            GridWavelet direction_grid;
+            GridWavelet direction_grid(threaded);
             direction_grid.setNodes(pointset, active_outputs, order);
             direction_grid.loadNeededPoints(vals.getStrip(0));
 

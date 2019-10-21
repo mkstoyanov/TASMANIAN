@@ -38,8 +38,8 @@ namespace TasGrid{
 #ifndef __TASMANIAN_DOXYGEN_SKIP
 class GridFourier : public BaseCanonicalGrid {
 public:
-    GridFourier();
-    ~GridFourier();
+    GridFourier(ThreadEngine * num_threads) : BaseCanonicalGrid(num_threads), max_levels(0){}
+    ~GridFourier(){}
 
     bool isFourier() const{ return true; }
 

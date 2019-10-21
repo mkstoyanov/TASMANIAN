@@ -1544,8 +1544,8 @@ public:
      * Used
      */
     void setNumThreads(size_t new_num_threads){
-        num_threads = new_num_threads;
-        if (!empty()) base->setNumThreads(new_num_threads);
+        threaded = std::make_unique<ThreadEngine>(new_num_threads);
+        if (!empty()) base->setThreadedEngine(threaded.get());
     }
     /*!
      * \brief Change the current acceleration mode to the one specified.
@@ -1961,7 +1961,7 @@ private:
     std::vector<int> conformal_asin_power;
     std::vector<int> llimits;
 
-    size_t num_threads;
+    std::unique_ptr<ThreadEngine> threaded;
     TypeAcceleration acceleration;
     int gpu_id;
 

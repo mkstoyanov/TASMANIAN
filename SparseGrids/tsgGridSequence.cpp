@@ -36,9 +36,6 @@
 
 namespace TasGrid{
 
-GridSequence::GridSequence(){}
-GridSequence::~GridSequence(){}
-
 template<bool iomode> void GridSequence::write(std::ostream &os) const{
     if (iomode == mode_ascii){ os << std::scientific; os.precision(17); }
     IO::writeNumbers<iomode, IO::pad_rspace>(os, num_dimensions, num_outputs);
@@ -796,7 +793,7 @@ std::vector<int> GridSequence::getPolynomialSpace(bool interpolation) const{
         return (points.empty()) ? needed.getVector() : points.getVector(); // copy
     }else{
         MultiIndexSet polynomial_set = MultiIndexManipulations::createPolynomialSpace(
-            num_threads,
+            threaded,
             (points.empty()) ? needed : points,
             [&](int l) -> int{ return OneDimensionalMeta::getQExact(l, rule); });
         return std::move(polynomial_set.getVector());
@@ -890,10 +887,10 @@ void GridSequence::recomputeSurpluses(){
     surpluses.resize(num_outputs, num_points);
     surpluses.getVector() = values.getVector();
 
-    std::vector<int> level = MultiIndexManipulations::computeLevels(num_threads, points);
+    std::vector<int> level = MultiIndexManipulations::computeLevels(threaded, points);
     int top_level = *std::max_element(level.begin(), level.end());
 
-    Data2D<int> parents = MultiIndexManipulations::computeDAGup(num_threads, points);
+    Data2D<int> parents = MultiIndexManipulations::computeDAGup(threaded, points);
 
     std::vector<std::vector<int>> indexses_for_levels((size_t) top_level+1);
     for(int i=0; i<num_points; i++)
@@ -945,10 +942,10 @@ void GridSequence::applyTransformationTransposed(double weights[]) const{
     const MultiIndexSet& work = (points.empty()) ? needed : points;
     int num_points = work.getNumIndexes();
 
-    std::vector<int> level = MultiIndexManipulations::computeLevels(num_threads, work);
+    std::vector<int> level = MultiIndexManipulations::computeLevels(threaded, work);
     int top_level = *std::max_element(level.begin(), level.end());
 
-    Data2D<int> parents = MultiIndexManipulations::computeDAGup(num_threads, work);
+    Data2D<int> parents = MultiIndexManipulations::computeDAGup(threaded, work);
 
     std::vector<int> monkey_count(top_level + 1);
     std::vector<int> monkey_tail(top_level + 1);

@@ -51,7 +51,8 @@ namespace TasGrid{
 
 class BaseCanonicalGrid{
 public:
-    BaseCanonicalGrid() : num_threads(std::thread::hardware_concurrency()){}
+    //BaseCanonicalGrid() : num_threads(std::thread::hardware_concurrency()){}
+    BaseCanonicalGrid(ThreadEngine *cthreads) : threaded(cthreads){}
     virtual ~BaseCanonicalGrid(){}
 
     virtual bool isGlobal() const{ return false; }
@@ -118,7 +119,7 @@ public:
     virtual void integrateHierarchicalFunctions(double integrals[]) const = 0;
 
     virtual void clearAccelerationData() = 0;
-    void setNumThreads(size_t new_num_threads){ num_threads = new_num_threads; }
+    void setThreadedEngine(ThreadEngine *new_engine){ threaded = new_engine; }
 
 protected:
     int num_dimensions, num_outputs;
@@ -126,7 +127,8 @@ protected:
     MultiIndexSet needed;
     StorageSet values;
 
-    size_t num_threads;
+    //size_t num_threads;
+    mutable ThreadEngine *threaded;
 };
 
 }

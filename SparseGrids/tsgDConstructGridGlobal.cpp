@@ -82,7 +82,7 @@ int DynamicConstructorDataGlobal::getMaxTensor() const{
 void DynamicConstructorDataGlobal::reloadPoints(std::function<int(int)> getNumPoints){
     for(auto &t : tensors){
         MultiIndexSet dummy_set(num_dimensions, std::vector<int>(t.tensor));
-        t.points = MultiIndexManipulations::generateNestedPoints(1, dummy_set, getNumPoints);
+        t.points = MultiIndexManipulations::generateNestedPoints(std::make_unique<ThreadEngine>(1).get(), dummy_set, getNumPoints);
         t.loaded = std::vector<bool>((size_t) t.points.getNumIndexes(), false);
     }
 
@@ -117,7 +117,9 @@ MultiIndexSet DynamicConstructorDataGlobal::getInitialTensors() const{
 void DynamicConstructorDataGlobal::addTensor(const int *tensor, std::function<int(int)> getNumPoints, double weight){
     tensors.emplace_front(TensorData{
                           std::vector<int>(tensor, tensor + num_dimensions),
-                          MultiIndexManipulations::generateNestedPoints(1, MultiIndexSet(num_dimensions, std::vector<int>(tensor, tensor + num_dimensions)), getNumPoints),
+                          MultiIndexManipulations::generateNestedPoints(
+                              std::make_unique<ThreadEngine>(1).get(),
+                              MultiIndexSet(num_dimensions, std::vector<int>(tensor, tensor + num_dimensions)), getNumPoints),
                           std::vector<bool>(),
                           weight
                           });

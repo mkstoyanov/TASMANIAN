@@ -36,9 +36,6 @@
 
 namespace TasGrid{
 
-GridLocalPolynomial::GridLocalPolynomial() : order(1), top_level(0), sparse_affinity(0)  {}
-GridLocalPolynomial::~GridLocalPolynomial(){}
-
 void GridLocalPolynomial::reset(bool clear_rule){
     clearAccelerationData();
     num_dimensions = num_outputs = top_level = 0;
@@ -156,7 +153,7 @@ void GridLocalPolynomial::makeGrid(int cnum_dimensions, int cnum_outputs, int de
 
     MultiIndexSet tensors = MultiIndexManipulations::selectTensors((size_t) num_dimensions, depth, type_level, [&](int i) -> int{ return i; }, std::vector<int>(), level_limits);
 
-    needed = MultiIndexManipulations::generateNestedPoints(num_threads, tensors, [&](int l) -> int{ return rule->getNumPoints(l); });
+    needed = MultiIndexManipulations::generateNestedPoints(threaded, tensors, [&](int l) -> int{ return rule->getNumPoints(l); });
 
     buildTree();
 
@@ -196,9 +193,9 @@ void GridLocalPolynomial::copyGrid(const GridLocalPolynomial *pwpoly, int ibegin
     }
 }
 
-GridLocalPolynomial::GridLocalPolynomial(int cnum_dimensions, int cnum_outputs, int corder, TypeOneDRule crule,
+GridLocalPolynomial::GridLocalPolynomial(ThreadEngine * num_threads, int cnum_dimensions, int cnum_outputs, int corder, TypeOneDRule crule,
                                          std::vector<int> &&pnts, std::vector<double> &&vals, std::vector<double> &&surps) :
-                                         order(corder), sparse_affinity(0){
+                                         BaseCanonicalGrid(num_threads), order(corder), sparse_affinity(0){
 
     num_dimensions = cnum_dimensions;
     num_outputs = cnum_outputs;

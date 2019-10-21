@@ -38,8 +38,8 @@ namespace TasGrid{
 #ifndef __TASMANIAN_DOXYGEN_SKIP
 class GridSequence : public BaseCanonicalGrid{
 public:
-    GridSequence();
-    ~GridSequence();
+    GridSequence(ThreadEngine * num_threads) : BaseCanonicalGrid(num_threads) {}
+    ~GridSequence(){}
 
     bool isSequence() const{ return true; }
 

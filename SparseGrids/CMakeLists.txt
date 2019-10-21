@@ -122,6 +122,7 @@ set(Tasmanian_source_libsparsegrid
         tsgRuleWavelet.cpp
         tsgSequenceOptimizer.hpp
         tsgSequenceOptimizer.cpp
+        tsgThreadEngine.hpp
         tsgMathUtils.hpp
         tsgUtils.hpp)
 
