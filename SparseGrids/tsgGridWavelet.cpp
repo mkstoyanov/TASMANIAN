@@ -106,9 +106,9 @@ void GridWavelet::makeGrid(int cnum_dimensions, int cnum_outputs, int depth, int
     MultiIndexSet tensors = MultiIndexManipulations::selectTensors((size_t) num_dimensions, depth, type_level, [](int i) -> int{ return i; }, std::vector<int>(), level_limits);
 
     if (order == 1){
-        needed = MultiIndexManipulations::generateNestedPoints(tensors, [](int l)->int{ return (1 << (l + 1)) + 1; });
+        needed = MultiIndexManipulations::generateNestedPoints(num_threads, tensors, [](int l)->int{ return (1 << (l + 1)) + 1; });
     }else{
-        needed = MultiIndexManipulations::generateNestedPoints(tensors, [](int l)->int{ return (1 << (l + 2)) + 1; });
+        needed = MultiIndexManipulations::generateNestedPoints(num_threads, tensors, [](int l)->int{ return (1 << (l + 2)) + 1; });
     }
 
     if (num_outputs == 0){

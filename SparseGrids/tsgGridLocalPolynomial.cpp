@@ -156,7 +156,7 @@ void GridLocalPolynomial::makeGrid(int cnum_dimensions, int cnum_outputs, int de
 
     MultiIndexSet tensors = MultiIndexManipulations::selectTensors((size_t) num_dimensions, depth, type_level, [&](int i) -> int{ return i; }, std::vector<int>(), level_limits);
 
-    needed = MultiIndexManipulations::generateNestedPoints(tensors, [&](int l) -> int{ return rule->getNumPoints(l); });
+    needed = MultiIndexManipulations::generateNestedPoints(num_threads, tensors, [&](int l) -> int{ return rule->getNumPoints(l); });
 
     buildTree();
 

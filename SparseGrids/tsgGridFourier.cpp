@@ -191,7 +191,7 @@ void GridFourier::setTensors(MultiIndexSet &&tset, int cnum_outputs){
 
     wrapper.load(*std::max_element(max_levels.begin(), max_levels.end()), rule_fourier, 0.0, 0.0);
 
-    std::vector<int> tensors_w = MultiIndexManipulations::computeTensorWeights(tensors);
+    std::vector<int> tensors_w = MultiIndexManipulations::computeTensorWeights(num_threads, tensors);
     active_tensors = MultiIndexManipulations::createActiveTensors(tensors, tensors_w);
 
     int nz_weights = active_tensors.getNumIndexes();
@@ -199,7 +199,7 @@ void GridFourier::setTensors(MultiIndexSet &&tset, int cnum_outputs){
     active_w.reserve(nz_weights);
     for(auto w : tensors_w) if (w != 0) active_w.push_back(w);
 
-    needed = MultiIndexManipulations::generateNestedPoints(tensors, [&](int l) -> int{ return wrapper.getNumPoints(l); });
+    needed = MultiIndexManipulations::generateNestedPoints(num_threads, tensors, [&](int l) -> int{ return wrapper.getNumPoints(l); });
 
     if (num_outputs == 0){
         points = std::move(needed);
@@ -214,13 +214,13 @@ void GridFourier::setTensors(MultiIndexSet &&tset, int cnum_outputs){
 void GridFourier::proposeUpdatedTensors(){
     wrapper.load(updated_tensors.getMaxIndex(), rule_fourier, 0.0, 0.0);
 
-    std::vector<int> updates_tensor_w = MultiIndexManipulations::computeTensorWeights(updated_tensors);
+    std::vector<int> updates_tensor_w = MultiIndexManipulations::computeTensorWeights(num_threads, updated_tensors);
     updated_active_tensors = MultiIndexManipulations::createActiveTensors(updated_tensors, updates_tensor_w);
 
     updated_active_w.reserve(updated_active_tensors.getNumIndexes());
     for(auto w : updates_tensor_w) if (w != 0) updated_active_w.push_back(w);
 
-    MultiIndexSet new_points = MultiIndexManipulations::generateNestedPoints(updated_tensors,
+    MultiIndexSet new_points = MultiIndexManipulations::generateNestedPoints(num_threads, updated_tensors,
                                 [&](int l) -> int{ return wrapper.getNumPoints(l); });
 
     needed = new_points.diffSets(points);
@@ -961,7 +961,7 @@ void GridFourier::loadConstructedTensors(){
 
     tensors.addMultiIndexSet(new_tensors);
     // recompute the tensor weights
-    auto tensors_w = MultiIndexManipulations::computeTensorWeights(tensors);
+    auto tensors_w = MultiIndexManipulations::computeTensorWeights(num_threads, tensors);
     active_tensors = MultiIndexManipulations::createActiveTensors(tensors, tensors_w);
 
     active_w = std::vector<int>();

@@ -796,6 +796,7 @@ std::vector<int> GridSequence::getPolynomialSpace(bool interpolation) const{
         return (points.empty()) ? needed.getVector() : points.getVector(); // copy
     }else{
         MultiIndexSet polynomial_set = MultiIndexManipulations::createPolynomialSpace(
+            num_threads,
             (points.empty()) ? needed : points,
             [&](int l) -> int{ return OneDimensionalMeta::getQExact(l, rule); });
         return std::move(polynomial_set.getVector());
@@ -889,10 +890,10 @@ void GridSequence::recomputeSurpluses(){
     surpluses.resize(num_outputs, num_points);
     surpluses.getVector() = values.getVector();
 
-    std::vector<int> level = MultiIndexManipulations::computeLevels(points);
+    std::vector<int> level = MultiIndexManipulations::computeLevels(num_threads, points);
     int top_level = *std::max_element(level.begin(), level.end());
 
-    Data2D<int> parents = MultiIndexManipulations::computeDAGup(points);
+    Data2D<int> parents = MultiIndexManipulations::computeDAGup(num_threads, points);
 
     std::vector<std::vector<int>> indexses_for_levels((size_t) top_level+1);
     for(int i=0; i<num_points; i++)
@@ -944,10 +945,10 @@ void GridSequence::applyTransformationTransposed(double weights[]) const{
     const MultiIndexSet& work = (points.empty()) ? needed : points;
     int num_points = work.getNumIndexes();
 
-    std::vector<int> level = MultiIndexManipulations::computeLevels(work);
+    std::vector<int> level = MultiIndexManipulations::computeLevels(num_threads, work);
     int top_level = *std::max_element(level.begin(), level.end());
 
-    Data2D<int> parents = MultiIndexManipulations::computeDAGup(work);
+    Data2D<int> parents = MultiIndexManipulations::computeDAGup(num_threads, work);
 
     std::vector<int> monkey_count(top_level + 1);
     std::vector<int> monkey_tail(top_level + 1);

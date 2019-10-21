@@ -53,12 +53,14 @@ bool TasmanianSparseGrid::isOpenMPEnabled(){
     #endif // _OPENMP
 }
 
-TasmanianSparseGrid::TasmanianSparseGrid() : acceleration(accel_none), gpu_id(0), usingDynamicConstruction(false){
+TasmanianSparseGrid::TasmanianSparseGrid() :
+    num_threads(std::thread::hardware_concurrency()), acceleration(accel_none), gpu_id(0), usingDynamicConstruction(false){
 #ifdef Tasmanian_ENABLE_BLAS
     acceleration = accel_cpu_blas;
 #endif // Tasmanian_ENABLE_BLAS
 }
-TasmanianSparseGrid::TasmanianSparseGrid(const TasmanianSparseGrid &source) : acceleration(accel_none), gpu_id(0), usingDynamicConstruction(false)
+TasmanianSparseGrid::TasmanianSparseGrid(const TasmanianSparseGrid &source) :
+    num_threads(std::thread::hardware_concurrency()), acceleration(accel_none), gpu_id(0), usingDynamicConstruction(false)
 {
     copyGrid(&source);
 #ifdef Tasmanian_ENABLE_BLAS
@@ -157,6 +159,7 @@ void TasmanianSparseGrid::makeGlobalGrid(int dimensions, int outputs, int depth,
     llimits = level_limits;
     base = make_unique_ptr<GridGlobal>();
     get<GridGlobal>()->makeGrid(dimensions, outputs, depth, type, rule, anisotropic_weights, alpha, beta, custom_filename, llimits);
+    base->setNumThreads(num_threads);
 }
 
 void TasmanianSparseGrid::makeSequenceGrid(int dimensions, int outputs, int depth, TypeDepth type, TypeOneDRule rule, const int *anisotropic_weights, const int *level_limits){
@@ -179,6 +182,7 @@ void TasmanianSparseGrid::makeSequenceGrid(int dimensions, int outputs, int dept
     llimits = level_limits;
     base = make_unique_ptr<GridSequence>();
     get<GridSequence>()->makeGrid(dimensions, outputs, depth, type, rule, anisotropic_weights, llimits);
+    base->setNumThreads(num_threads);
 }
 
 void TasmanianSparseGrid::makeLocalPolynomialGrid(int dimensions, int outputs, int depth, int order, TypeOneDRule rule, const int *level_limits){
@@ -201,6 +205,7 @@ void TasmanianSparseGrid::makeLocalPolynomialGrid(int dimensions, int outputs, i
     llimits = level_limits;
     base = make_unique_ptr<GridLocalPolynomial>();
     get<GridLocalPolynomial>()->makeGrid(dimensions, outputs, depth, order, rule, llimits);
+    base->setNumThreads(num_threads);
 }
 
 void TasmanianSparseGrid::makeWaveletGrid(int dimensions, int outputs, int depth, int order, const int *level_limits){
@@ -219,6 +224,7 @@ void TasmanianSparseGrid::makeWaveletGrid(int dimensions, int outputs, int depth
     llimits = level_limits;
     base = make_unique_ptr<GridWavelet>();
     get<GridWavelet>()->makeGrid(dimensions, outputs, depth, order, llimits);
+    base->setNumThreads(num_threads);
 }
 
 void TasmanianSparseGrid::makeFourierGrid(int dimensions, int outputs, int depth, TypeDepth type, const int* anisotropic_weights, const int* level_limits){
@@ -236,6 +242,7 @@ void TasmanianSparseGrid::makeFourierGrid(int dimensions, int outputs, int depth
     llimits = level_limits;
     base = make_unique_ptr<GridFourier>();
     get<GridFourier>()->makeGrid(dimensions, outputs, depth, type, anisotropic_weights, llimits);
+    base->setNumThreads(num_threads);
 }
 
 void TasmanianSparseGrid::copyGrid(const TasmanianSparseGrid *source, int outputs_begin, int outputs_end){

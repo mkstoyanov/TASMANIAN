@@ -166,13 +166,19 @@ void GridGlobal::recomputeTensorRefs(const MultiIndexSet &work){
     int nz_weights = active_tensors.getNumIndexes();
     tensor_refs.resize((size_t) nz_weights);
     if (OneDimensionalMeta::isNonNested(rule)){
-        #pragma omp parallel for schedule(dynamic)
-        for(int i=0; i<nz_weights; i++)
+        //#pragma omp parallel for schedule(dynamic)
+        //for(int i=0; i<nz_weights; i++)
+        //    MultiIndexManipulations::referencePoints<false>(active_tensors.getIndex(i), wrapper, work, tensor_refs[i]);
+        Utils::doParallel<int, Utils::SyncParallel>((int) num_threads, nz_weights, [&](int i)->void{
             MultiIndexManipulations::referencePoints<false>(active_tensors.getIndex(i), wrapper, work, tensor_refs[i]);
+        });
     }else{
-        #pragma omp parallel for schedule(dynamic)
-        for(int i=0; i<nz_weights; i++)
+        //#pragma omp parallel for schedule(dynamic)
+        //for(int i=0; i<nz_weights; i++)
+        //    MultiIndexManipulations::referencePoints<true>(active_tensors.getIndex(i), wrapper, work, tensor_refs[i]);
+        Utils::doParallel<int, Utils::SyncParallel>((int) num_threads, nz_weights, [&](int i)->void{
             MultiIndexManipulations::referencePoints<true>(active_tensors.getIndex(i), wrapper, work, tensor_refs[i]);
+        });
     }
 }
 
@@ -230,16 +236,16 @@ void GridGlobal::setTensors(MultiIndexSet &&tset, int cnum_outputs, TypeOneDRule
 
     wrapper.load(custom, *std::max_element(max_levels.begin(), max_levels.end()), rule, alpha, beta);
 
-    std::vector<int> tensors_w = MultiIndexManipulations::computeTensorWeights(tensors);
+    std::vector<int> tensors_w = MultiIndexManipulations::computeTensorWeights(num_threads, tensors);
     active_tensors = MultiIndexManipulations::createActiveTensors(tensors, tensors_w);
 
     active_w.reserve(active_tensors.getNumIndexes());
     for(auto w : tensors_w) if (w != 0) active_w.push_back(w);
 
     if (OneDimensionalMeta::isNonNested(rule)){
-        needed = MultiIndexManipulations::generateNonNestedPoints(active_tensors, wrapper);
+        needed = MultiIndexManipulations::generateNonNestedPoints(num_threads, active_tensors, wrapper);
     }else{
-        needed = MultiIndexManipulations::generateNestedPoints(tensors, [&](int l) -> int{ return wrapper.getNumPoints(l); });
+        needed = MultiIndexManipulations::generateNestedPoints(num_threads, tensors, [&](int l) -> int{ return wrapper.getNumPoints(l); });
     }
 
     recomputeTensorRefs(needed);
@@ -256,15 +262,15 @@ void GridGlobal::proposeUpdatedTensors(){
     int max_level = updated_tensors.getMaxIndex();
     wrapper.load(custom, max_level, rule, alpha, beta);
 
-    std::vector<int> updates_tensor_w = MultiIndexManipulations::computeTensorWeights(updated_tensors);
+    std::vector<int> updates_tensor_w = MultiIndexManipulations::computeTensorWeights(num_threads, updated_tensors);
     updated_active_tensors = MultiIndexManipulations::createActiveTensors(updated_tensors, updates_tensor_w);
 
     updated_active_w.reserve(updated_active_tensors.getNumIndexes());
     for(auto w : updates_tensor_w) if (w != 0) updated_active_w.push_back(w);
 
     MultiIndexSet new_points = (OneDimensionalMeta::isNonNested(rule)) ?
-            MultiIndexManipulations::generateNonNestedPoints(updated_active_tensors, wrapper) :
-            MultiIndexManipulations::generateNestedPoints(updated_tensors, [&](int l) -> int{ return wrapper.getNumPoints(l); });
+            MultiIndexManipulations::generateNonNestedPoints(num_threads, updated_active_tensors, wrapper) :
+            MultiIndexManipulations::generateNestedPoints(num_threads, updated_tensors, [&](int l) -> int{ return wrapper.getNumPoints(l); });
 
     needed = new_points.diffSets(points);
 }
@@ -314,8 +320,17 @@ void GridGlobal::getQuadratureWeights(double weights[]) const{
         }
         double tensor_weight = (double) active_w[n];
 
-        #pragma omp parallel for schedule(static)
-        for(int i=0; i<num_tensor_points; i++){
+//         #pragma omp parallel for schedule(static)
+//         for(int i=0; i<num_tensor_points; i++){
+//             int t = i;
+//             double w = 1.0;
+//             for(int j=num_dimensions-1; j>=0; j--){
+//                 w *= wrapper.getWeight(levels[j], t % num_oned_points[j]);
+//                 t /= num_oned_points[j];
+//             }
+//             weights[tensor_refs[n][i]] += tensor_weight * w;
+//         }
+        Utils::doParallel<int>((int) num_threads, num_tensor_points, [&](int i)->void{
             int t = i;
             double w = 1.0;
             for(int j=num_dimensions-1; j>=0; j--){
@@ -323,7 +338,7 @@ void GridGlobal::getQuadratureWeights(double weights[]) const{
                 t /= num_oned_points[j];
             }
             weights[tensor_refs[n][i]] += tensor_weight * w;
-        }
+        });
     }
 }
 
@@ -575,7 +590,7 @@ void GridGlobal::loadConstructedTensors(){
 
     tensors.addMultiIndexSet(new_tensors);
     // recompute the tensor weights
-    auto tensors_w = MultiIndexManipulations::computeTensorWeights(tensors);
+    auto tensors_w = MultiIndexManipulations::computeTensorWeights(num_threads, tensors);
     active_tensors = MultiIndexManipulations::createActiveTensors(tensors, tensors_w);
 
     active_w = std::vector<int>();
@@ -608,9 +623,12 @@ void GridGlobal::evaluate(const double x[], double y[]) const{
 void GridGlobal::evaluateBatch(const double x[], int num_x, double y[]) const{
     Utils::Wrapper2D<const double> xwrap(num_dimensions, x);
     Utils::Wrapper2D<double> ywrap(num_outputs, y);
-    #pragma omp parallel for
-    for(int i=0; i<num_x; i++)
+    //#pragma omp parallel for
+    //for(int i=0; i<num_x; i++)
+    //    evaluate(xwrap.getStrip(i), ywrap.getStrip(i));
+    Utils::doParallel<int>((int) num_threads, num_x, [&](int i)->void{
         evaluate(xwrap.getStrip(i), ywrap.getStrip(i));
+    });
 }
 
 #ifdef Tasmanian_ENABLE_BLAS
@@ -745,12 +763,10 @@ void GridGlobal::integrate(double q[], double *conformal_correction) const{
     getQuadratureWeights(w.data());
     if (conformal_correction != 0) for(int i=0; i<points.getNumIndexes(); i++) w[i] *= conformal_correction[i];
     std::fill(q, q+num_outputs, 0.0);
-    #pragma omp parallel for schedule(static)
-    for(int k=0; k<num_outputs; k++){
-        for(int i=0; i<points.getNumIndexes(); i++){
-            const double *v = values.getValues(i);
-            q[k] += w[i] * v[k];
-        }
+    //#pragma omp parallel for schedule(static)
+    for(int i=0; i<points.getNumIndexes(); i++){
+        const double *v = values.getValues(i);
+        for(int k=0; k<num_outputs; k++) q[k] += w[i] * v[k];
     }
 }
 
@@ -758,9 +774,12 @@ void GridGlobal::evaluateHierarchicalFunctions(const double x[], int num_x, doub
     int num_points = (points.empty()) ? needed.getNumIndexes() : points.getNumIndexes();
     Utils::Wrapper2D<const double> xwrap(num_dimensions, x);
     Utils::Wrapper2D<double> ywrap(num_points, y);
-    #pragma omp parallel for
-    for(int i=0; i<num_x; i++)
+    //#pragma omp parallel for
+    //for(int i=0; i<num_x; i++)
+    //    getInterpolationWeights(xwrap.getStrip(i), ywrap.getStrip(i));
+    Utils::doParallel<int>((int) num_threads, num_x, [&](int i)->void{
         getInterpolationWeights(xwrap.getStrip(i), ywrap.getStrip(i));
+    });
 }
 
 std::vector<double> GridGlobal::computeSurpluses(int output, bool normalize) const{
@@ -826,9 +845,25 @@ std::vector<double> GridGlobal::computeSurpluses(int output, bool normalize) con
             std::advance(iter_y, num_outputs);
         }
 
-        #pragma omp parallel for schedule(dynamic)
-        for(int i=0; i<num_points; i++){
-            // for each surp, do the quadrature
+        //#pragma omp parallel for schedule(dynamic)
+        //for(int i=0; i<num_points; i++){
+        //    // for each surp, do the quadrature
+        //    const int* p = points.getIndex(i);
+        //    double c = 0.0;
+        //    auto iter_x = x.begin();
+        //    for(auto ii: I){
+        //        double v = 1.0;
+        //        for(int j=0; j<num_dimensions; j++) v *= legendre(p[j], *iter_x++);
+        //        c += v * ii;
+        //    }
+        //    double nrm = std::sqrt((double) p[0] + 0.5);
+        //    for(int j=1; j<num_dimensions; j++){
+        //        nrm *= std::sqrt((double) p[j] + 0.5);
+        //    }
+        //    surp[i] = c * nrm;
+        //}
+        Utils::doParallel<int, Utils::SyncParallel>((int) num_threads, num_points, [&](int i)->void{
+            //for each surp, do the quadrature
             const int* p = points.getIndex(i);
             double c = 0.0;
             auto iter_x = x.begin();
@@ -842,7 +877,7 @@ std::vector<double> GridGlobal::computeSurpluses(int output, bool normalize) con
                 nrm *= std::sqrt((double) p[j] + 0.5);
             }
             surp[i] = c * nrm;
-        }
+        });
     }
     return surp;
 }
@@ -986,15 +1021,15 @@ void GridGlobal::clearAccelerationData(){
 MultiIndexSet GridGlobal::getPolynomialSpaceSet(bool interpolation) const{
     if (interpolation){
         if (rule == rule_customtabulated){
-            return MultiIndexManipulations::createPolynomialSpace(active_tensors, [&](int l)-> int{ return custom.getIExact(l); });
+            return MultiIndexManipulations::createPolynomialSpace(1, active_tensors, [&](int l)-> int{ return custom.getIExact(l); });
         }else{
-            return MultiIndexManipulations::createPolynomialSpace(active_tensors, [&](int l)-> int{ return OneDimensionalMeta::getIExact(l, rule); });
+            return MultiIndexManipulations::createPolynomialSpace(1, active_tensors, [&](int l)-> int{ return OneDimensionalMeta::getIExact(l, rule); });
         }
     }else{
         if (rule == rule_customtabulated){
-            return MultiIndexManipulations::createPolynomialSpace(active_tensors, [&](int l)-> int{ return custom.getQExact(l); });
+            return MultiIndexManipulations::createPolynomialSpace(1, active_tensors, [&](int l)-> int{ return custom.getQExact(l); });
         }else{
-            return MultiIndexManipulations::createPolynomialSpace(active_tensors, [&](int l)-> int{ return OneDimensionalMeta::getQExact(l, rule); });
+            return MultiIndexManipulations::createPolynomialSpace(1, active_tensors, [&](int l)-> int{ return OneDimensionalMeta::getQExact(l, rule); });
         }
     }
 }

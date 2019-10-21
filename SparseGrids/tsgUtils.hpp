@@ -43,6 +43,9 @@
  * \endinternal
  */
 
+#include <thread>
+#include <mutex>
+
 #include "tsgMathUtils.hpp"
 
 /*!
@@ -128,6 +131,65 @@ private:
     size_t stride;
     T *data;
 };
+
+struct SyncParallel{};
+struct SyncStatic{};
+
+/*!
+ * \internal
+ * \ingroup TasmanianUtils
+ * \brief Compute entries in parallel.
+ *
+ * \endinternal
+ */
+template<typename IndexType, typename SyncType = SyncStatic>
+inline void doParallel(IndexType num_threads, IndexType num_runs, std::function<void(IndexType i)> work){
+
+    IndexType num_blocks = ((std::is_same<SyncType, SyncParallel>::value) ? 16 : 1) * num_threads;
+    IndexType whole_jumps = num_runs / num_blocks;
+    IndexType rem_jumps = num_runs % num_blocks;
+    auto get_offset = [&](IndexType j)->IndexType{ return static_cast<IndexType>(j * whole_jumps + std::min(j, rem_jumps)); };
+
+    if (std::is_same<SyncType, SyncParallel>::value){
+
+        std::vector<bool> checked_out(num_blocks, false);
+        std::mutex checked_out_lock;
+
+        std::vector<std::thread> workers;
+        workers.reserve(num_threads);
+        for(IndexType thread_id=0; thread_id<num_threads; thread_id++){
+            workers.emplace_back( // create a new worker thread
+                    [&, thread_id](void)->void{
+                        IndexType sample = 0;
+
+                        do{
+                            { // find the next sample
+                                std::lock_guard<std::mutex> lock(checked_out_lock);
+                                while ((sample < num_blocks) && checked_out[sample]) sample++;
+                                if (sample < num_blocks) checked_out[sample] = true;
+                            }
+
+                            if (sample < num_blocks)
+                                for(IndexType i=get_offset(sample); i<get_offset(sample + 1); i++) work(i);
+                        }while(sample < num_blocks);
+                    });
+        }
+
+        for(auto &w : workers) w.join();
+    }else if (std::is_same<SyncType, SyncStatic>::value){
+
+        std::vector<std::thread> workers;
+        workers.reserve(num_threads);
+        for(IndexType thread_id=0; thread_id<num_threads; thread_id++){
+            workers.emplace_back( // create a new worker thread
+                    [&, thread_id](void)->void{
+                        for(IndexType i=get_offset(thread_id); i<get_offset(thread_id + 1); i++) work(i);
+                    });
+        }
+
+        for(auto &w : workers) w.join();
+    }
+}
 
 }
 

@@ -249,16 +249,18 @@ MultiIndexSet selectTensors(size_t num_dimensions, int offset, TypeDepth type,
     }
 }
 
-std::vector<int> computeLevels(MultiIndexSet const &mset){
+std::vector<int> computeLevels(size_t num_threads, MultiIndexSet const &mset){
     // cannot add as inline to the public header due to the pragma and possible "unknown pragma" message
     int num_indexes = mset.getNumIndexes();
     size_t num_dimensions = mset.getNumDimensions();
     std::vector<int> levels((size_t) num_indexes);
-    #pragma omp parallel for
-    for(int i=0; i<num_indexes; i++){
+//     #pragma omp parallel for
+//     for(int i=0; i<num_indexes; i++){
+    Utils::doParallel<int>((int) num_threads, num_indexes, [&](int i)->void{
         const int* p = mset.getIndex(i);
         levels[i] = std::accumulate(p, p + num_dimensions, 0);
-    }
+    });
+//   }
     return levels;
 }
 
@@ -273,12 +275,13 @@ std::vector<int> getMaxIndexes(const MultiIndexSet &mset){
     return max_index;
 }
 
-Data2D<int> computeDAGup(MultiIndexSet const &mset){
+Data2D<int> computeDAGup(size_t num_threads, MultiIndexSet const &mset){
     size_t num_dimensions = (size_t) mset.getNumDimensions();
     int n = mset.getNumIndexes();
     Data2D<int> parents(mset.getNumDimensions(), n);
-    #pragma omp parallel for schedule(static)
-    for(int i=0; i<n; i++){
+    //#pragma omp parallel for schedule(static)
+    //for(int i=0; i<n; i++){
+    Utils::doParallel<int>((int) num_threads, n, [&](int i)->void{
         std::vector<int> dad(num_dimensions);
         std::copy_n(mset.getIndex(i), num_dimensions, dad.data());
         int *v = parents.getStrip(i);
@@ -288,7 +291,8 @@ Data2D<int> computeDAGup(MultiIndexSet const &mset){
             d++;
             v++;
         }
-    }
+    });
+    //}
     return parents;
 }
 
@@ -330,12 +334,13 @@ MultiIndexSet selectFlaggedChildren(const MultiIndexSet &mset, const std::vector
     return MultiIndexSet(children_unsorted);
 }
 
-MultiIndexSet generateNestedPoints(const MultiIndexSet &tensors, std::function<int(int)> getNumPoints){
+MultiIndexSet generateNestedPoints(size_t num_threads, const MultiIndexSet &tensors, std::function<int(int)> getNumPoints){
     size_t num_dimensions = (size_t) tensors.getNumDimensions();
     std::vector<MultiIndexSet> delta_sets((size_t) tensors.getNumIndexes());
 
-    #pragma omp parallel for
-    for(int i=0; i<tensors.getNumIndexes(); i++){
+//    #pragma omp parallel for
+//    for(int i=0; i<tensors.getNumIndexes(); i++){
+    Utils::doParallel<int>((int) num_threads, tensors.getNumIndexes(), [&](int i)->void{
         Data2D<int> raw_points(num_dimensions, 0);
 
         std::vector<int> num_points_delta(num_dimensions);
@@ -366,18 +371,20 @@ MultiIndexSet generateNestedPoints(const MultiIndexSet &tensors, std::function<i
         }
 
         delta_sets[i] = MultiIndexSet(raw_points);
-    }
+    });
+//    }
 
     return unionSets(delta_sets);
 }
 
-MultiIndexSet generateNonNestedPoints(const MultiIndexSet &tensors, const OneDimensionalWrapper &wrapper){
+MultiIndexSet generateNonNestedPoints(size_t num_threads, const MultiIndexSet &tensors, const OneDimensionalWrapper &wrapper){
     size_t num_dimensions = tensors.getNumDimensions();
     int num_tensors = tensors.getNumIndexes();
     std::vector<MultiIndexSet> point_tensors((size_t) num_tensors);
 
-    #pragma omp parallel for
-    for(int t=0; t<num_tensors; t++){
+//    #pragma omp parallel for
+//    for(int t=0; t<num_tensors; t++){
+    Utils::doParallel<int>((int) num_threads, num_tensors, [&](int t)->void{
         std::vector<int> num_entries(num_dimensions);
         const int *p = tensors.getIndex(t);
         std::transform(p, p + num_dimensions, num_entries.begin(), [&](int l)->int{ return wrapper.getNumPoints(l); });
@@ -398,24 +405,26 @@ MultiIndexSet generateNonNestedPoints(const MultiIndexSet &tensors, const OneDim
         }
 
         point_tensors[t] = MultiIndexSet(raw_points);
-    }
+    });
+//    }
 
     return unionSets(point_tensors);
 }
 
-std::vector<int> computeTensorWeights(MultiIndexSet const &mset){
+std::vector<int> computeTensorWeights(size_t num_threads, MultiIndexSet const &mset){
     size_t num_dimensions = (size_t) mset.getNumDimensions();
     int num_tensors = mset.getNumIndexes();
 
-    std::vector<int> level = computeLevels(mset);
+    std::vector<int> level = computeLevels(num_threads, mset);
     int max_level = *std::max_element(level.begin(), level.end());
 
     Data2D<int> dag_down(num_dimensions, num_tensors);
 
     std::vector<int> weights((size_t) num_tensors);
 
-    #pragma omp parallel for schedule(static)
-    for(int i=0; i<num_tensors; i++){
+//     #pragma omp parallel for schedule(static)
+//     for(int i=0; i<num_tensors; i++){
+    Utils::doParallel<int>((int) num_threads, num_tensors, [&](int i)->void{
         std::vector<int> kid(num_dimensions);
         std::copy_n(mset.getIndex(i), num_dimensions, kid.data());
 
@@ -427,11 +436,13 @@ std::vector<int> computeTensorWeights(MultiIndexSet const &mset){
         }
 
         if (level[i] == max_level) weights[i] = 1;
-    }
+    });
+//    }
 
     for(int l=max_level-1; l>=0; l--){
-        #pragma omp parallel for schedule(dynamic)
-        for(int i=0; i<num_tensors; i++){
+//        #pragma omp parallel for schedule(dynamic)
+//        for(int i=0; i<num_tensors; i++){
+        Utils::doParallel<int, Utils::SyncParallel>((int) num_threads, num_tensors, [&](int i)->void{
             if (level[i] == l){
                 std::vector<int> monkey_tail(max_level-l+1);
                 std::vector<int> monkey_count(max_level-l+1);
@@ -461,25 +472,28 @@ std::vector<int> computeTensorWeights(MultiIndexSet const &mset){
 
                 weights[i] = 1 - sum;
             }
-        }
+        });
+//        }
     }
 
     return weights;
 }
 
-MultiIndexSet createPolynomialSpace(const MultiIndexSet &tensors, std::function<int(int)> exactness){
+MultiIndexSet createPolynomialSpace(size_t num_threads, const MultiIndexSet &tensors, std::function<int(int)> exactness){
     size_t num_dimensions = (size_t) tensors.getNumDimensions();
     int num_tensors = tensors.getNumIndexes();
     std::vector<MultiIndexSet> polynomial_tensors((size_t) num_tensors);
 
-    #pragma omp parallel for
-    for(int i=0; i<num_tensors; i++){
+//    #pragma omp parallel for
+//    for(int i=0; i<num_tensors; i++){
+    Utils::doParallel<int>((int) num_threads, num_tensors, [&](int i)->void{
         std::vector<int> npoints(num_dimensions);
         const int *p = tensors.getIndex(i);
         for(size_t j=0; j<num_dimensions; j++)
             npoints[j] = exactness(p[j]) + 1;
         polynomial_tensors[i] = generateFullTensorSet(npoints);
-    }
+    });
+//    }
 
     return unionSets(polynomial_tensors);
 }

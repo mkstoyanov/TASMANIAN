@@ -1539,6 +1539,15 @@ public:
     void printStats(std::ostream &os = std::cout) const;
 
     /*!
+     * \brief Set the number of threads to use at the back-end.
+     *
+     * Used
+     */
+    void setNumThreads(size_t new_num_threads){
+        num_threads = new_num_threads;
+        if (!empty()) base->setNumThreads(new_num_threads);
+    }
+    /*!
      * \brief Change the current acceleration mode to the one specified.
      *
      * Sets a new acceleration mode and releases the cached data-structures for the old mode.
@@ -1952,6 +1961,7 @@ private:
     std::vector<int> conformal_asin_power;
     std::vector<int> llimits;
 
+    size_t num_threads;
     TypeAcceleration acceleration;
     int gpu_id;
 

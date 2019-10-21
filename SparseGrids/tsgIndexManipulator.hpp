@@ -280,7 +280,7 @@ MultiIndexSet selectTensors(size_t num_dimensions, int offset, TypeDepth type, s
  *
  * \endinternal
  */
-std::vector<int> computeLevels(MultiIndexSet const &mset);
+std::vector<int> computeLevels(size_t num_threads, MultiIndexSet const &mset);
 
 /*!
  * \internal
@@ -299,7 +299,7 @@ std::vector<int> getMaxIndexes(const MultiIndexSet &mset);
  * Adds -1 in places where the parents are missing.
  * \endinternal
  */
-Data2D<int> computeDAGup(MultiIndexSet const &mset);
+Data2D<int> computeDAGup(size_t num_threads, MultiIndexSet const &mset);
 
 /*!
  * \internal
@@ -320,7 +320,7 @@ MultiIndexSet selectFlaggedChildren(const MultiIndexSet &mset, const std::vector
  * This can work if and only if \b tensors is a lower-complete set, i.e., the \b tensors in \b GridGlobal and not the active_tensors.
  * \endinternal
  */
-MultiIndexSet generateNestedPoints(const MultiIndexSet &tensors, std::function<int(int)> getNumPoints);
+MultiIndexSet generateNestedPoints(size_t num_threads, const MultiIndexSet &tensors, std::function<int(int)> getNumPoints);
 
 /*!
  * \internal
@@ -330,7 +330,7 @@ MultiIndexSet generateNestedPoints(const MultiIndexSet &tensors, std::function<i
  *  For each index in \b tensor, generate a local set of points and then remap them to the global index using the \b wrapper.getPointIndex().
  * \endinternal
  */
-MultiIndexSet generateNonNestedPoints(const MultiIndexSet &tensors, const OneDimensionalWrapper &wrapper);
+MultiIndexSet generateNonNestedPoints(size_t num_threads, const MultiIndexSet &tensors, const OneDimensionalWrapper &wrapper);
 
 /*!
  * \internal
@@ -369,7 +369,7 @@ void referencePoints(const int levels[], const OneDimensionalWrapper &wrapper, c
  *
  * \endinternal
  */
-std::vector<int> computeTensorWeights(MultiIndexSet const &mset);
+std::vector<int> computeTensorWeights(size_t num_threads, MultiIndexSet const &mset);
 
 /*!
  * \internal
@@ -405,7 +405,7 @@ inline MultiIndexSet createActiveTensors(const MultiIndexSet &mset, const std::v
  *
  * \endinternal
  */
-MultiIndexSet createPolynomialSpace(const MultiIndexSet &tensors, std::function<int(int)> exactness);
+MultiIndexSet createPolynomialSpace(size_t num_threads, const MultiIndexSet &tensors, std::function<int(int)> exactness);
 
 /*!
  * \internal
