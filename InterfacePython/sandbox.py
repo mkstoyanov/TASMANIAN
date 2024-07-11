@@ -23,7 +23,8 @@ from mpl_toolkits.mplot3d import Axes3D
 print("Add code to this file to test, debug, or develop features")
 
 def model(x):
-    eps  = 1.E-2
+    eps  = 1.E-2 # sharp case
+    #eps  = 0     # smooth case
     kink = 5.0
     if x < math.pi / 8.0:
         return math.exp(x)
@@ -60,7 +61,8 @@ for glevel in range(9):
     errg = np.max(np.abs( gridg.evaluateBatch(x.reshape(-1,1)).reshape(-1) - y ))
     print(gridg.getNumPoints(), errg)
 
-    if gridg.getNumPoints() < 66:
+    if gridg.getNumPoints() < 66: # sharp case
+    #if gridg.getNumPoints() < 20: # smooth case
         glob["x"].append(gridg.getNumPoints())
         glob["y"].append(errg)
 
