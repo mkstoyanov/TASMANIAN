@@ -61,6 +61,7 @@ pLibCTSG.tsgLoadUnstructuredDataL2.argtypes = [POINTER(c_double), c_int, POINTER
 
 pLibCTSG.tsgCreateExoticQuadratureFromGrid.argtypes = [c_void_p, c_int, c_double, c_void_p, c_char_p, c_int]
 pLibCTSG.tsgCreateExoticQuadratureFromFunction.argtypes = [c_void_p, c_int, c_double, type_1Dfunc, c_int, c_char_p, c_int]
+pLibCTSG.tsgCreateNestedExoticQuadratureFromFunction.argtypes = [c_void_p, c_int, c_char_p, c_double, type_1Dfunc, c_int, c_char_p]
 
 def tsgLnpModelWrapper(oUserModel, iSizeX, pX, iSizeY, pY, iThreadID, pErrInfo):
     '''
@@ -439,4 +440,25 @@ def createExoticQuadratureFromFunction(level, shift, weight_fn, nref, descriptio
     ct = TasmanianSG.CustomTabulated()
     pLibCTSG.tsgCreateExoticQuadratureFromFunction(c_void_p(ct.pCustomTabulated), c_int(level), c_double(shift), type_1Dfunc(weight_fn),
                                                    c_int(nref), bytes(description, encoding='utf8'), c_int(is_symmetric))
+    return ct
+
+def createNestedExoticQuadratureFromFunction(level, rule, shift, weight_fn, nref, description):
+    '''
+    Calls TasGrid::getExoticQuadrature() from a function lambda representing the weight function, and output a Python
+    CustomTabulated object.
+    See the C++ reference for more information.
+
+    level:        positive integer representing the level of the exotic quadrature grid.
+    rule:         a nested rule to use as the points for the exotic quadrature.
+    shift:        double where [weight_function(x) + shift] is nonegative for every x in the domain of the weight function.
+    weight_fn:    Python lambda function representing the weight function.
+    nref:         positive integer representing the number of points used to generate the weight function surrogate/interpolant.
+    description:  string describing the Exotic quadrature instance.
+
+    output:       a Python CustomTabulated object.
+    '''
+    ct = TasmanianSG.CustomTabulated()
+    pLibCTSG.tsgCreateNestedExoticQuadratureFromFunction(
+            c_void_p(ct.pCustomTabulated), c_int(level), bytes(rule, encoding='utf8'),  c_double(shift), type_1Dfunc(weight_fn),
+            c_int(nref), bytes(description, encoding='utf8'))
     return ct

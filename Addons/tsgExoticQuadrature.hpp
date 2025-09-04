@@ -368,5 +368,62 @@ inline TasGrid::CustomTabulated getExoticQuadrature(const int num_levels, const 
     return getShiftedExoticQuadrature(num_levels, shift, shifted_weights, ref_points, description, is_symmetric);
 }
 
+inline TasGrid::CustomTabulated getNestedExoticQuadrature(
+    const int num_levels, TypeOneDRule rule, const double shift, std::function<double(double)> weight_fn,
+    const int num_ref_points, const char* description)
+{
+    if (OneDimensionalMeta::isNonNested(rule))
+        throw std::runtime_error("cannot call getNestedExoticQuadrature() with a non-nested rule");
+    std::vector<double> shifted_weights, ref_points, weight_fn_vals(num_ref_points);
+    TasGrid::OneDimensionalNodes::getGaussLegendre(num_ref_points, shifted_weights, ref_points);
+    std::transform(ref_points.begin(), ref_points.end(), weight_fn_vals.begin(), weight_fn);
+    shiftReferenceWeights(weight_fn_vals, shift, shifted_weights);
+
+    std::vector<int> num_nodes(num_levels);
+    std::vector<int> precision(num_levels);
+    std::vector<std::vector<double>> points_cache(num_levels);
+    std::vector<std::vector<double>> weights_cache(num_levels);
+
+    for (int l = 0; l < num_levels; l++) {
+        // std::cout << " building level " << l << '\n';
+        auto grid = makeGlobalGrid(1, 1, l, TypeDepth::type_level, rule);
+
+        num_nodes[l] = grid.getNumPoints();
+        precision[l] = num_nodes[l] - 1;
+
+        // std::cout << " num-nodes and prec = " << num_nodes[l] << "   " << precision[l] << "\n";
+
+        points_cache[l] = grid.getNeededPoints();
+        weights_cache[l].resize(num_nodes[l]);
+
+        std::vector<double> vals(num_nodes[l], 0.0);
+        std::vector<double> neg_weights = grid.getQuadratureWeights();
+
+        for (int i = 0; i < num_nodes[l]; i++) {
+            // std::cout << " building points = " << i << '\n';
+            vals[i] = 1.0;
+            grid.loadNeededValues(vals);
+            vals[i] = 0.0;
+
+            std::vector<double> leg;
+            grid.evaluateBatch(ref_points, leg);
+
+            double sum = 0.0;
+            for (size_t j = 0; j < ref_points.size(); j++) {
+                sum += leg[j] * shifted_weights[j];
+            }
+            weights_cache[l][i] = sum - shift * neg_weights[i];
+        }
+        // std::cout << " ---------- done level = " << l << "\n";
+    }
+
+    // std::cout << " building rule \n";
+
+    return TasGrid::CustomTabulated(std::move(num_nodes), std::move(precision), std::move(points_cache), std::move(weights_cache),
+                                    description);
+
+    //return getShiftedExoticQuadrature(num_levels, shift, shifted_weights, ref_points, description, is_symmetric);
+}
+
 } // namespace(TasGrid)
 #endif

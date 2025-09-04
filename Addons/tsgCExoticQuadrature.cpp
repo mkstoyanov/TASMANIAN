@@ -48,5 +48,12 @@ extern "C"{
         *((TasGrid::CustomTabulated*) custom_tabulated) =
                 TasGrid::getExoticQuadrature(level, shift, weight_fn, nref, description, is_symmetric);
     }
+    void tsgCreateNestedExoticQuadratureFromFunction(
+            void* custom_tabulated, const int level, const char *sRule,
+            const double shift, tsg_weight_fn weight_fn, const int nref, const char* description) {
+        TasGrid::TypeOneDRule rule = TasGrid::IO::getRuleString(sRule);
+        *((TasGrid::CustomTabulated*) custom_tabulated) =
+                TasGrid::getNestedExoticQuadrature(level, rule, shift, weight_fn, nref, description);
+    }
 } // extern "C"
 #endif
