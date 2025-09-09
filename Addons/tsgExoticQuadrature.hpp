@@ -83,15 +83,6 @@ namespace TasGrid {
 /*!
  * \internal
  * \ingroup TasmanianAddonsExoticQuad
- * \brief Specifies which algorithm is used in computing the Gauss quadrature points and weights in getGaussNodesAndWeights().
- *
- * \endinternal
- */
-static int gauss_quadrature_version = 1;
-
-/*!
- * \internal
- * \ingroup TasmanianAddonsExoticQuad
  * \brief Evaluates a polynomial with roots given by \b roots at the point \b x.
  *
  * The polynomial is defined by a simple product of (x - roots[i]) and will not be normalized.
@@ -148,12 +139,6 @@ inline double lagrange_eval(size_t idx, const std::vector<double> &roots, double
 template <bool is_symmetric>
 inline void getGaussNodesAndWeights(const int n, const std::vector<double> &ref_points, const std::vector<double> &ref_weights,
                                     std::vector<std::vector<double>> &points_cache, std::vector<std::vector<double>> &weights_cache) {
-    #ifndef Tasmanian_ENABLE_BLAS
-    // If BLAS is not enabled, we must use an implementation that does not require it.
-    if (gauss_quadrature_version == 1) {
-        gauss_quadrature_version = 2;
-    }
-    #endif
     // Compute the roots incrementally.
     assert(ref_points.size() == ref_weights.size());
     assert(ref_points.size() > 0);
@@ -186,7 +171,7 @@ inline void getGaussNodesAndWeights(const int n, const std::vector<double> &ref_
             offdiag.push_back(std::sqrt(sqr_offdiag_numr / sqr_offdiag_denm));
         }
         // Compute the Gauss points and weights.
-        if (gauss_quadrature_version == 1) {
+        #ifdef Tasmanian_ENABLE_BLAS
             // Use LAPACK to obtain the Gauss points, and use the reference points and weights to obtain the Gauss weights.
             // Note that the matrix is always symmetric even if the weights function is not.
             points_cache[i] = TasmanianTridiagonalSolver::getSymmetricEigenvalues(i+1, diag, offdiag);
@@ -200,14 +185,12 @@ inline void getGaussNodesAndWeights(const int n, const std::vector<double> &ref_
                     weights_cache[i][j] += lagrange_eval(j, points_cache[i], ref_points[k]) * ref_weights[k];
                 }
             }
-        } else if (gauss_quadrature_version == 2) {
+        #else
             // Use TasmanianTridiagonalSolver::decompose().
             std::vector<double> dummy_diag = diag;
             std::vector<double> dummy_offdiag = offdiag;
             TasmanianTridiagonalSolver::decompose(dummy_diag, dummy_offdiag, mu0, points_cache[i], weights_cache[i]);
-        } else {
-            throw std::invalid_argument("ERROR: gauss_quadrature_version must be a valid number!");
-        }
+        #endif
         // Update the values of the polynomials at ref_points.
         std::swap(poly_m1_vals, poly_vals);
         std::transform(ref_points.begin(), ref_points.end(), poly_vals.begin(),
