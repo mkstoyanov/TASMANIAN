@@ -132,29 +132,22 @@ private:
 
     mutable TasSparse::WaveletBasisMatrix inter_matrix;
 
-    std::unique_ptr<SimpleConstructData> dynamic_values;
-
-    std::unique_ptr<CudaWaveletData<double>>& getGpuCacheOverload(double) const{ return gpu_cache; }
-    std::unique_ptr<CudaWaveletData<float>>& getGpuCacheOverload(float) const{ return gpu_cachef; }
-    template<typename T> std::unique_ptr<CudaWaveletData<T>>& getGpuCache() const{
+    std::optional<CudaWaveletData<double>>& getGpuCacheOverload(double) const{ return gpu_cache; }
+    std::optional<CudaWaveletData<float>>& getGpuCacheOverload(float) const{ return gpu_cachef; }
+    template<typename T> std::optional<CudaWaveletData<T>>& getGpuCache() const{
         return getGpuCacheOverload(static_cast<T>(0.0));
     }
     template<typename T> void loadGpuCoefficients() const;
     template<typename T> void loadGpuBasis() const;
-    mutable std::unique_ptr<CudaWaveletData<double>> gpu_cache;
-    mutable std::unique_ptr<CudaWaveletData<float>> gpu_cachef;
+    mutable std::optional<CudaWaveletData<double>> gpu_cache;
+    mutable std::optional<CudaWaveletData<float>> gpu_cachef;
+
+    std::unique_ptr<SimpleConstructData> dynamic_values;
 };
 
 // Old version reader
 template<> struct GridReaderVersion5<GridWavelet>{
-    template<typename iomode> static std::unique_ptr<GridWavelet> read(AccelerationContext const *acc, std::istream &is){
-        std::unique_ptr<GridWavelet> grid = Utils::make_unique<GridWavelet>(acc);
-        read<iomode>(is, grid.get());
-        return grid;
-    }
-
     template<typename iomode> static void read(std::istream &is, GridWavelet *grid) {
-
         grid->num_dimensions = IO::readNumber<iomode, int>(is);
         grid->num_outputs = IO::readNumber<iomode, int>(is);
         grid->order = IO::readNumber<iomode, int>(is);

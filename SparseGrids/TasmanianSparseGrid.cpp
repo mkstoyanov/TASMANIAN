@@ -160,7 +160,6 @@ void TasmanianSparseGrid::makeGlobalGrid(int dimensions, int outputs, int depth,
     clear();
     llimits = level_limits;
     base = GridGlobal(acceleration.get(), dimensions, outputs, depth, type, rule, anisotropic_weights, alpha, beta, custom_filename, llimits);
-    //base = Utils::make_unique<GridGlobal>(acceleration.get(), dimensions, outputs, depth, type, rule, anisotropic_weights, alpha, beta, custom_filename, llimits);
 }
 void TasmanianSparseGrid::makeGlobalGrid(int dimensions, int outputs, int depth, TypeDepth type, CustomTabulated &&crule,
                                          const int *anisotropic_weights, const int *level_limits){

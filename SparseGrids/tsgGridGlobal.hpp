@@ -162,29 +162,22 @@ private:
 
     CustomTabulated custom;
 
-    std::unique_ptr<DynamicConstructorDataGlobal> dynamic_values;
-
     template<typename T> void loadGpuNodes() const;
     template<typename T> void loadGpuValues() const;
-    inline std::unique_ptr<CudaGlobalData<double>>& getGpuCacheOverload(double) const{ return gpu_cache; }
-    inline std::unique_ptr<CudaGlobalData<float>>& getGpuCacheOverload(float) const{ return gpu_cachef; }
-    template<typename T> inline std::unique_ptr<CudaGlobalData<T>>& getGpuCache() const{
+    inline std::optional<CudaGlobalData<double>>& getGpuCacheOverload(double) const{ return gpu_cache; }
+    inline std::optional<CudaGlobalData<float>>& getGpuCacheOverload(float) const{ return gpu_cachef; }
+    template<typename T> inline std::optional<CudaGlobalData<T>>& getGpuCache() const{
         return getGpuCacheOverload(static_cast<T>(0.0));
     }
-    mutable std::unique_ptr<CudaGlobalData<double>> gpu_cache;
-    mutable std::unique_ptr<CudaGlobalData<float>> gpu_cachef;
+    mutable std::optional<CudaGlobalData<double>> gpu_cache;
+    mutable std::optional<CudaGlobalData<float>> gpu_cachef;
+
+    std::unique_ptr<DynamicConstructorDataGlobal> dynamic_values;
 };
 
 // Old version reader
 template<> struct GridReaderVersion5<GridGlobal>{
-    template<typename iomode> static std::unique_ptr<GridGlobal> read(AccelerationContext const *acc, std::istream &is){
-        std::unique_ptr<GridGlobal> grid = Utils::make_unique<GridGlobal>(acc);
-        read<iomode>(is, grid.get());
-        return grid;
-    }
-
     template<typename iomode> static void read(std::istream &is, GridGlobal *grid) {
-
         grid->num_dimensions = IO::readNumber<iomode, int>(is);
         grid->num_outputs = IO::readNumber<iomode, int>(is);
         grid->alpha = IO::readNumber<iomode, double>(is);

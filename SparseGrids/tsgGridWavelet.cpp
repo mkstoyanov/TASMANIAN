@@ -88,7 +88,7 @@ GridWavelet::GridWavelet(AccelerationContext const *acc, GridWavelet const *wav,
     {
 
     if (wav->dynamic_values){
-        dynamic_values = Utils::make_unique<SimpleConstructData>(*wav->dynamic_values);
+        dynamic_values = std::make_unique<SimpleConstructData>(*wav->dynamic_values);
         if (num_outputs != wav->num_outputs) dynamic_values->restrictData(ibegin, iend); // handle when copy a subset of the outputs
     }
 }
@@ -277,7 +277,7 @@ void GridWavelet::evaluateHierarchicalFunctionsGPU(const float gpu_x[], int cpu_
 }
 template<typename T> void GridWavelet::loadGpuBasis() const{
     auto &ccache = getGpuCache<T>();
-    if (!ccache) ccache = Utils::make_unique<CudaWaveletData<T>>();
+    if (!ccache) ccache = CudaWaveletData<T>{};
     if (!ccache->nodes.empty()) return;
 
     const MultiIndexSet &work = (points.empty()) ? needed : points;
@@ -300,7 +300,7 @@ void GridWavelet::clearGpuBasis() const{
 }
 template<typename T> void GridWavelet::loadGpuCoefficients() const{
     auto &ccache = getGpuCache<T>();
-    if (!ccache) ccache = Utils::make_unique<CudaWaveletData<T>>();
+    if (!ccache) ccache = CudaWaveletData<T>{};
     if (ccache->coefficients.empty()) ccache->coefficients.load(acceleration, coefficients.totalSize(), coefficients.data());
 }
 void GridWavelet::clearGpuCoefficients() const{
@@ -594,7 +594,7 @@ const double* GridWavelet::getSurpluses() const{
 }
 
 void GridWavelet::beginConstruction(){
-    dynamic_values = Utils::make_unique<SimpleConstructData>();
+    dynamic_values = std::make_unique<SimpleConstructData>();
     if (points.empty()){
         dynamic_values->initial_points = std::move(needed);
         needed = MultiIndexSet();
@@ -605,9 +605,9 @@ void GridWavelet::writeConstructionData(std::ostream &os, bool iomode) const{
 }
 void GridWavelet::readConstructionData(std::istream &is, bool iomode){
     if (iomode == mode_ascii)
-        dynamic_values = Utils::make_unique<SimpleConstructData>(is, num_dimensions, num_outputs, IO::mode_ascii_type());
+        dynamic_values = std::make_unique<SimpleConstructData>(is, num_dimensions, num_outputs, IO::mode_ascii_type());
     else
-        dynamic_values = Utils::make_unique<SimpleConstructData>(is, num_dimensions, num_outputs, IO::mode_binary_type());
+        dynamic_values = std::make_unique<SimpleConstructData>(is, num_dimensions, num_outputs, IO::mode_binary_type());
 }
 
 namespace WaveManipulations{

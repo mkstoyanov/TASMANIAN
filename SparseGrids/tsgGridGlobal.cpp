@@ -140,7 +140,7 @@ GridGlobal::GridGlobal(AccelerationContext const *acc, GridGlobal const *global,
     custom((global->rule == rule_customtabulated) ? global->custom : CustomTabulated()){
 
     if (global->dynamic_values){
-        dynamic_values = Utils::make_unique<DynamicConstructorDataGlobal>(*global->dynamic_values);
+        dynamic_values = std::make_unique<DynamicConstructorDataGlobal>(*global->dynamic_values);
         if (num_outputs != global->num_outputs) dynamic_values->restrictData(ibegin, iend);
     }
 }
@@ -353,7 +353,7 @@ void GridGlobal::mergeRefinement(){
 }
 
 void GridGlobal::beginConstruction(){
-    dynamic_values = Utils::make_unique<DynamicConstructorDataGlobal>(num_dimensions, num_outputs);
+    dynamic_values = std::make_unique<DynamicConstructorDataGlobal>(num_dimensions, num_outputs);
     if (points.empty()){ // if we start dynamic construction from an empty grid
         for(int i=0; i<tensors.getNumIndexes(); i++){
             const int *t = tensors.getIndex(i);
@@ -372,9 +372,9 @@ void GridGlobal::writeConstructionData(std::ostream &os, bool iomode) const{
 }
 void GridGlobal::readConstructionData(std::istream &is, bool iomode){
     if (iomode == mode_ascii)
-        dynamic_values = Utils::make_unique<DynamicConstructorDataGlobal>(is, num_dimensions, num_outputs, IO::mode_ascii_type());
+        dynamic_values = std::make_unique<DynamicConstructorDataGlobal>(is, num_dimensions, num_outputs, IO::mode_ascii_type());
     else
-        dynamic_values = Utils::make_unique<DynamicConstructorDataGlobal>(is, num_dimensions, num_outputs, IO::mode_binary_type());
+        dynamic_values = std::make_unique<DynamicConstructorDataGlobal>(is, num_dimensions, num_outputs, IO::mode_binary_type());
     int max_level = dynamic_values->getMaxTensor();
     if (max_level + 1 > wrapper.getNumLevels())
         wrapper = OneDimensionalWrapper(custom, max_level, rule, alpha, beta);
@@ -622,13 +622,13 @@ void GridGlobal::evaluateHierarchicalFunctionsGPU(const float gpu_x[], int cpu_n
 }
 template<typename T> void GridGlobal::loadGpuValues() const{
     auto& ccache = getGpuCache<T>();
-    if (!ccache) ccache = Utils::make_unique<CudaGlobalData<T>>();
+    if (!ccache) ccache = CudaGlobalData<T>{};
     if (ccache->values.empty()) ccache->values.load(acceleration, values.totalSize(), values.data());
 }
 void GridGlobal::clearGpuValues() const{ if (gpu_cache) gpu_cache->values.clear(); }
 template<typename T> void GridGlobal::loadGpuNodes() const{
     auto& ccache = getGpuCache<T>();
-    if (!ccache) ccache = Utils::make_unique<CudaGlobalData<T>>();
+    if (!ccache) ccache = CudaGlobalData<T>{};
     if (!ccache->nodes.empty()) return; // already loaded
     // data for stage 1 (Lagrange caching)
     ccache->nodes.load(acceleration, (OneDimensionalMeta::isNonNested(rule)) ? wrapper.getAllNodes() : wrapper.getUnique());

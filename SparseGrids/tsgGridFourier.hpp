@@ -181,27 +181,21 @@ private:
 
     std::vector<int> max_power;
 
-    std::unique_ptr<DynamicConstructorDataGlobal> dynamic_values;
-
     template<typename T> void loadGpuNodes() const;
     template<typename T> void loadGpuCoefficients() const;
-    inline std::unique_ptr<CudaFourierData<double>>& getGpuCacheOverload(double) const{ return gpu_cache; }
-    inline std::unique_ptr<CudaFourierData<float>>& getGpuCacheOverload(float) const{ return gpu_cachef; }
-    template<typename T> inline std::unique_ptr<CudaFourierData<T>>& getGpuCache() const{
+    inline std::optional<CudaFourierData<double>>& getGpuCacheOverload(double) const{ return gpu_cache; }
+    inline std::optional<CudaFourierData<float>>& getGpuCacheOverload(float) const{ return gpu_cachef; }
+    template<typename T> inline std::optional<CudaFourierData<T>>& getGpuCache() const{
         return getGpuCacheOverload(static_cast<T>(0.0));
     }
-    mutable std::unique_ptr<CudaFourierData<double>> gpu_cache;
-    mutable std::unique_ptr<CudaFourierData<float>> gpu_cachef;
+    mutable std::optional<CudaFourierData<double>> gpu_cache;
+    mutable std::optional<CudaFourierData<float>> gpu_cachef;
+
+    std::unique_ptr<DynamicConstructorDataGlobal> dynamic_values;
 };
 
 // Old version reader
 template<> struct GridReaderVersion5<GridFourier>{
-    template<typename iomode> static std::unique_ptr<GridFourier> read(AccelerationContext const *acc, std::istream &is){
-        std::unique_ptr<GridFourier> grid = Utils::make_unique<GridFourier>(acc);
-        read<iomode>(is, grid.get());
-        return grid;
-    }
-
     template<typename iomode> static void read(std::istream &is, GridFourier *grid) {
         grid->num_dimensions = IO::readNumber<iomode, int>(is);
         grid->num_outputs = IO::readNumber<iomode, int>(is);

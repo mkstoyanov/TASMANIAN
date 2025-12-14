@@ -176,18 +176,16 @@ private:
 
     std::vector<int> max_levels;
 
-    std::unique_ptr<SimpleConstructData> dynamic_values;
-
     // specialize below for the float case
-    std::unique_ptr<CudaSequenceData<double>>& getGpuCacheOverload(double) const{ return gpu_cache; }
-    std::unique_ptr<CudaSequenceData<float>>& getGpuCacheOverload(float) const{ return gpu_cachef; }
-    template<typename T> std::unique_ptr<CudaSequenceData<T>>& getGpuCache() const{
+    std::optional<CudaSequenceData<double>>& getGpuCacheOverload(double) const{ return gpu_cache; }
+    std::optional<CudaSequenceData<float>>& getGpuCacheOverload(float) const{ return gpu_cachef; }
+    template<typename T> std::optional<CudaSequenceData<T>>& getGpuCache() const{
         return getGpuCacheOverload(static_cast<T>(0.0));
     }
     template<typename T>
     void loadGpuNodes() const{
         auto& ccache = getGpuCache<T>();
-        if (!ccache) ccache = Utils::make_unique<CudaSequenceData<T>>();
+        if (!ccache) ccache = CudaSequenceData<T>{};
         if (!ccache->num_nodes.empty()) return;
 
         ccache->nodes.load(acceleration, nodes);
@@ -209,23 +207,18 @@ private:
     }
     template<typename T> void loadGpuSurpluses() const{
         auto& ccache = getGpuCache<T>();
-        if (!ccache) ccache = Utils::make_unique<CudaSequenceData<T>>();
+        if (!ccache) ccache = CudaSequenceData<T>{};
         if (ccache->surpluses.empty()) ccache->surpluses.load(acceleration, surpluses.totalSize(), surpluses.data());
     }
-    mutable std::unique_ptr<CudaSequenceData<double>> gpu_cache;
-    mutable std::unique_ptr<CudaSequenceData<float>> gpu_cachef;
+    mutable std::optional<CudaSequenceData<double>> gpu_cache;
+    mutable std::optional<CudaSequenceData<float>> gpu_cachef;
+
+    std::unique_ptr<SimpleConstructData> dynamic_values;
 };
 
 // Old version reader
 template<> struct GridReaderVersion5<GridSequence>{
-    template<typename iomode> static std::unique_ptr<GridSequence> read(AccelerationContext const *acc, std::istream &is){
-        std::unique_ptr<GridSequence> grid = Utils::make_unique<GridSequence>(acc);
-        read<iomode>(is, grid.get());
-        return grid;
-    }
-
     template<typename iomode> static void read(std::istream &is, GridSequence *grid) {
-
         grid->num_dimensions = IO::readNumber<iomode, int>(is);
         grid->num_outputs = IO::readNumber<iomode, int>(is);
         grid->rule = IO::readRule<iomode>(is);

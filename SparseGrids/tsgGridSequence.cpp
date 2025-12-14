@@ -103,7 +103,7 @@ GridSequence::GridSequence(AccelerationContext const *acc, GridSequence const *s
     max_levels(seq->max_levels){
 
     if (seq->dynamic_values){
-        dynamic_values = Utils::make_unique<SimpleConstructData>(*seq->dynamic_values);
+        dynamic_values = std::make_unique<SimpleConstructData>(*seq->dynamic_values);
         if (num_outputs != seq->num_outputs) dynamic_values->restrictData(ibegin, iend);
     }
 }
@@ -235,7 +235,7 @@ void GridSequence::mergeRefinement(){
 }
 
 void GridSequence::beginConstruction(){
-    dynamic_values = Utils::make_unique<SimpleConstructData>();
+    dynamic_values = std::make_unique<SimpleConstructData>();
     if (points.empty()){
         dynamic_values->initial_points = std::move(needed);
         needed = MultiIndexSet();
@@ -246,9 +246,9 @@ void GridSequence::writeConstructionData(std::ostream &os, bool iomode) const{
 }
 void GridSequence::readConstructionData(std::istream &is, bool iomode){
     if (iomode == mode_ascii)
-        dynamic_values = Utils::make_unique<SimpleConstructData>(is, num_dimensions, num_outputs, IO::mode_ascii_type());
+        dynamic_values = std::make_unique<SimpleConstructData>(is, num_dimensions, num_outputs, IO::mode_ascii_type());
     else
-        dynamic_values = Utils::make_unique<SimpleConstructData>(is, num_dimensions, num_outputs, IO::mode_binary_type());
+        dynamic_values = std::make_unique<SimpleConstructData>(is, num_dimensions, num_outputs, IO::mode_binary_type());
 }
 std::vector<double> GridSequence::getCandidateConstructionPoints(TypeDepth type, const std::vector<int> &anisotropic_weights, const std::vector<int> &level_limits){
     MultiIndexManipulations::ProperWeights weights((size_t) num_dimensions, type, anisotropic_weights);

@@ -87,7 +87,7 @@ GridFourier::GridFourier(AccelerationContext const *acc, GridFourier const *four
     max_power(fourier->max_power){
 
     if (fourier->dynamic_values){
-        dynamic_values = Utils::make_unique<DynamicConstructorDataGlobal>(*fourier->dynamic_values);
+        dynamic_values = std::make_unique<DynamicConstructorDataGlobal>(*fourier->dynamic_values);
         if (num_outputs != fourier->num_outputs) dynamic_values->restrictData(ibegin, iend);
     }
 }
@@ -633,7 +633,7 @@ void GridFourier::evaluateHierarchicalFunctionsInternalGPU(const T gpu_x[], int 
 }
 template<typename T> void GridFourier::loadGpuNodes() const{
     auto& ccache = getGpuCache<T>();
-    if (!ccache) ccache = Utils::make_unique<CudaFourierData<T>>();
+    if (!ccache) ccache = CudaFourierData<T>{};
     if (!ccache->num_nodes.empty()) return;
 
     std::vector<int> num_nodes(num_dimensions);
@@ -660,7 +660,7 @@ void GridFourier::clearGpuNodes() const{
 }
 template<typename T> void GridFourier::loadGpuCoefficients() const{
     auto& ccache = getGpuCache<T>();
-    if (!ccache) ccache = Utils::make_unique<CudaFourierData<T>>();
+    if (!ccache) ccache = CudaFourierData<T>{};
     if (!ccache->real.empty()) return;
     int num_points = points.getNumIndexes();
     size_t num_coeff = Utils::size_mult(num_outputs, num_points);
@@ -850,7 +850,7 @@ void GridFourier::mergeRefinement(){
 }
 
 void GridFourier::beginConstruction(){
-    dynamic_values = Utils::make_unique<DynamicConstructorDataGlobal>(num_dimensions, num_outputs);
+    dynamic_values = std::make_unique<DynamicConstructorDataGlobal>(num_dimensions, num_outputs);
     if (points.empty()){ // if we start dynamic construction from an empty grid
         for(int i=0; i<tensors.getNumIndexes(); i++){
             const int *t = tensors.getIndex(i);
@@ -869,9 +869,9 @@ void GridFourier::writeConstructionData(std::ostream &os, bool iomode) const{
 }
 void GridFourier::readConstructionData(std::istream &is, bool iomode){
     if (iomode == mode_ascii)
-        dynamic_values = Utils::make_unique<DynamicConstructorDataGlobal>(is, num_dimensions, num_outputs, IO::mode_ascii_type());
+        dynamic_values = std::make_unique<DynamicConstructorDataGlobal>(is, num_dimensions, num_outputs, IO::mode_ascii_type());
     else
-        dynamic_values = Utils::make_unique<DynamicConstructorDataGlobal>(is, num_dimensions, num_outputs, IO::mode_binary_type());
+        dynamic_values = std::make_unique<DynamicConstructorDataGlobal>(is, num_dimensions, num_outputs, IO::mode_binary_type());
     int max_level = dynamic_values->getMaxTensor();
     if (max_level + 1 > wrapper.getNumLevels())
         wrapper = OneDimensionalWrapper(max_level, rule_fourier, 0.0, 0.0);

@@ -386,8 +386,6 @@ private:
 
     RuleLocal::erule effective_rule;
 
-    std::unique_ptr<SimpleConstructData> dynamic_values;
-
     // synchronize with tasgpu_devalpwpoly_feval
     template<int ord, TypeOneDRule crule, typename T>
     Data2D<T> encodeSupportForGPU(const MultiIndexSet &work) const{
@@ -431,28 +429,23 @@ private:
         }
         return cpu_support;
     }
-    std::unique_ptr<CudaLocalPolynomialData<double>>& getGpuCacheOverload(double) const{ return gpu_cache; }
-    std::unique_ptr<CudaLocalPolynomialData<float>>& getGpuCacheOverload(float) const{ return gpu_cachef; }
-    template<typename T> std::unique_ptr<CudaLocalPolynomialData<T>>& getGpuCache() const{
+    std::optional<CudaLocalPolynomialData<double>>& getGpuCacheOverload(double) const{ return gpu_cache; }
+    std::optional<CudaLocalPolynomialData<float>>& getGpuCacheOverload(float) const{ return gpu_cachef; }
+    template<typename T> std::optional<CudaLocalPolynomialData<T>>& getGpuCache() const{
         return getGpuCacheOverload(static_cast<T>(0.0));
     }
     template<typename T> void loadGpuBasis() const;
     template<typename T> void loadGpuHierarchy() const;
     template<typename T> void loadGpuSurpluses() const;
-    mutable std::unique_ptr<CudaLocalPolynomialData<double>> gpu_cache;
-    mutable std::unique_ptr<CudaLocalPolynomialData<float>> gpu_cachef;
+    mutable std::optional<CudaLocalPolynomialData<double>> gpu_cache;
+    mutable std::optional<CudaLocalPolynomialData<float>> gpu_cachef;
+
+    std::unique_ptr<SimpleConstructData> dynamic_values;
 };
 
 // Old version reader
 template<> struct GridReaderVersion5<GridLocalPolynomial>{
-    template<typename iomode> static std::unique_ptr<GridLocalPolynomial> read(AccelerationContext const *acc, std::istream &is){
-        std::unique_ptr<GridLocalPolynomial> grid = Utils::make_unique<GridLocalPolynomial>(acc);
-        read<iomode>(is, grid.get());
-        return grid;
-    }
-
     template<typename iomode> static void read(std::istream &is, GridLocalPolynomial *grid) {
-
             grid->num_dimensions = IO::readNumber<iomode, int>(is);
             grid->num_outputs = IO::readNumber<iomode, int>(is);
             grid->order = IO::readNumber<iomode, int>(is);
