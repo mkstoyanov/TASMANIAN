@@ -388,6 +388,17 @@ public:
      * \throws std::runtime_error if the \b custom_filename if missing, or it cannot be opened,
      * or the format is incorrect.
      */
+    void makeGlobalGrid(NumDimensions dimensions, NumOutputs outputs, NumDepth depth, TypeDepth type, TypeOneDRule rule,
+                        std::vector<int> const &anisotropic_weights, double alpha = 0.0, double beta = 0.0,
+                        const char* custom_filename = nullptr, std::vector<int> const &level_limits = std::vector<int>())
+    {
+        makeGlobalGrid(static_cast<int>(dimensions), static_cast<int>(outputs), static_cast<int>(depth),
+                       type, rule, anisotropic_weights, alpha, beta, custom_filename, level_limits);
+    }
+
+    /*!
+     * \brief Overload, API using int as opposed to strong type
+     */
     void makeGlobalGrid(int dimensions, int outputs, int depth, TypeDepth type, TypeOneDRule rule,
                         std::vector<int> const &anisotropic_weights, double alpha = 0.0, double beta = 0.0,
                         const char* custom_filename = nullptr, std::vector<int> const &level_limits = std::vector<int>());
