@@ -123,6 +123,30 @@ enum TypeIndexRelation{ // internal for IndexSets, unambiguous set comparison
 };
 
 /*!
+ * \brief Strong type for the number of dimensions
+ * \ingroup SGEnumerates
+ */
+enum class NumDimensions : int {};
+
+/*!
+ * \brief Strong type for the number of outputs
+ * \ingroup SGEnumerates
+ */
+enum class NumOutputs : int {};
+
+/*!
+ * \brief Strong type for the depth (e.g., level/polynomial-order) of the grid
+ * \ingroup SGEnumerates
+ */
+enum class NumDepth : int {};
+
+/*!
+ * \brief Strong type for the maximum polynomial order of the grid
+ * \ingroup SGEnumerates
+ */
+enum class NumOrder : int {};
+
+/*!
  * \brief Used by Global Sequence and Fourier grids, indicates the selection criteria.
  * \ingroup SGEnumerates
  *
