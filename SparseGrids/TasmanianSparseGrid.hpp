@@ -444,6 +444,15 @@ public:
      * \throws std::invalid_argument with human readable messages when integers are out of range,
      * the \b rule is not a sequence rule, or the vectors have incorrect size.
      */
+    void makeSequenceGrid(NumDimensions dimensions, NumOutputs outputs, NumDepth depth, TypeDepth type, TypeOneDRule rule,
+                          std::vector<int> const &anisotropic_weights, std::vector<int> const &level_limits = std::vector<int>())
+    {
+        makeSequenceGrid(static_cast<int>(dimensions), static_cast<int>(outputs), static_cast<int>(depth),
+                         type, rule, anisotropic_weights, level_limits);
+    }
+    /*!
+     * \brief Overload, API using int as opposed to strong type
+     */
     void makeSequenceGrid(int dimensions, int outputs, int depth, TypeDepth type, TypeOneDRule rule,
                           std::vector<int> const &anisotropic_weights, std::vector<int> const &level_limits = std::vector<int>());
     /*!
@@ -482,7 +491,18 @@ public:
      * \throws std::invalid_argument with human readable messages when integers are out of range,
      * the \b rule is not a local polynomial rule, or the vector has incorrect size.
      */
+    void makeLocalPolynomialGrid(NumDimensions dimensions, NumOutputs outputs, NumDepth depth, NumOrder order,
+                                 TypeOneDRule rule, std::vector<int> const &level_limits)
+    {
+        makeLocalPolynomialGrid(static_cast<int>(dimensions), static_cast<int>(outputs), static_cast<int>(depth),
+                                static_cast<int>(order), rule, level_limits);
+    }
+
+    /*!
+     * \brief Overload, API using int as opposed to strong type
+     */
     void makeLocalPolynomialGrid(int dimensions, int outputs, int depth, int order, TypeOneDRule rule, std::vector<int> const &level_limits);
+
     /*!
      * \brief Overload using raw-arrays.
      *
@@ -510,7 +530,18 @@ public:
      *
      * \throws std::invalid_argument with human readable messages when integers are out of range, or the vector has incorrect size.
      */
+    void makeWaveletGrid(NumDimensions dimensions, NumOutputs outputs, NumDepth depth, NumOrder order,
+                         std::vector<int> const &level_limits)
+    {
+        makeWaveletGrid(static_cast<int>(dimensions), static_cast<int>(outputs), static_cast<int>(depth),
+                        static_cast<int>(order), level_limits);
+    }
+
+    /*!
+     * \brief Overload, API using int as opposed to strong type
+     */
     void makeWaveletGrid(int dimensions, int outputs, int depth, int order, std::vector<int> const &level_limits);
+
     /*!
      * \brief Overload using raw-arrays.
      *
@@ -528,6 +559,15 @@ public:
      * The parameters and error messages are identical to those used in makeGlobalGrid(),
      * but this always uses TasGrid::rule_fourier and the polynomial order in the selection
      * is replaced by the frequency of the trigonometric basis.
+     */
+    void makeFourierGrid(NumDimensions dimensions, NumOutputs outputs, NumDepth depth, TypeDepth type,
+                         std::vector<int> const &anisotropic_weights, std::vector<int> const &level_limits = std::vector<int>())
+    {
+        makeFourierGrid(static_cast<int>(dimensions), static_cast<int>(outputs), static_cast<int>(depth),
+                        type, anisotropic_weights, level_limits);
+    }
+    /*!
+     * \brief Overload, API using int as opposed to strong type
      */
     void makeFourierGrid(int dimensions, int outputs, int depth, TypeDepth type,
                          std::vector<int> const &anisotropic_weights, std::vector<int> const &level_limits = std::vector<int>());
