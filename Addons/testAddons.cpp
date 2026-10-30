@@ -78,7 +78,7 @@ int main(int argc, char const **argv){
     pass_all = pass_all && pass;
     #else
     cout << std::setw(40) << "Unstructured construction" << std::setw(10) << "skipping" << endl;
-    gpuid *= 2; // no op to register the use of gpuid
+    std::ignore = gpuid; // suppresses compiler warning
     #endif
 
     // Tests for Exotic Quadrature.
