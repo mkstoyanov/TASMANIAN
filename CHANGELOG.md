@@ -4,6 +4,7 @@ Changelog for version 8.3
 * C++-17 is now required
     * enabled multiple C++ quality of life features for the internal API
     * the external API remains unchanged and stable
+    * added strong types for factories and constructors of main classes
 * moved polymorphism from using OOP inheritance to using std::variant
 * bug fixes
     * differentiation near or at the edge of the domain boundary is more stable now
